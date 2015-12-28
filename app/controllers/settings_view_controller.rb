@@ -17,15 +17,29 @@ class SettingsViewController < UIViewController
       layout.vertical "|[table]|"
       layout.horizontal "|[table]|"
     end
+
+    @data = []
+    @data << { label: 'Bluetooth', detail: '$bluetoothLocalName' }
+    @data << { label: 'Wi-Fi',     detail: '$ssid' }
   end
 
   # UITableView に必須のメソッド
   def tableView(tableView, numberOfRowsInSection: section)
-    0
+    @data.size
   end
 
   # UITableView に必須のメソッド
   def tableView(tableView, cellForRowAtIndexPath: indexPath)
+    @reuseIdentifier ||= "CELL_IDENTIFIER"
+    cell = tableView.dequeueReusableCellWithIdentifier(@reuseIdentifier) || begin
+      UITableViewCell.alloc.initWithStyle(UITableViewCellStyleValue1, reuseIdentifier:@reuseIdentifier)
+    end
+    # ↑ここまではお決まりのコード
+    # ↓ここでテーブルにデータを入れる
+    cell.textLabel.text = @data[indexPath.row][:label]
+    cell.detailTextLabel.text = @data[indexPath.row][:detail]
+
+    cell
   end
 
 end
