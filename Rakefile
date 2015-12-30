@@ -8,6 +8,9 @@ begin
 rescue LoadError
 end
 
+# gem dotenvを有効にする
+environment_variables = Dotenv.load
+
 Motion::Project::App.setup do |app|
   # Use `rake config' to see complete project settings.
   app.name = 'OlyMotion'
@@ -18,4 +21,20 @@ Motion::Project::App.setup do |app|
     :products => %w(OLYCameraKit),
     :headers_dir => 'Headers'
     )
+
+  app.identifier           = ENV['APP_IDENTIFIER']
+  app.codesign_certificate = ENV['APP_CODESIGN_CERTIFICATE']
+  app.provisioning_profile = ENV['APP_PROVISIONING_PROFILE']
+  # ↓Olympun謹製のOA.Centralを呼び出せるようにplist設定する
+  app.info_plist['LSApplicationQueriesSchemes'] = %w(jp.olympus-imaging.oacentral)
+  # ↓この設定によって、OA.Centralから呼び出してもらえるようになる。
+  # Xcodeでは Info > URL Types のなかに書かれているものです
+  app.info_plist['CFBundleURLTypes'] = [
+    {
+      'CFBundleTypeRole'   => 'Viewer',
+      'CFBundleURLSchemes' => ["#{ENV['APP_IDENTIFIER']}.GetFromOacentral"]
+    }
+  ]
+  # app/env.rbとセットで効く
+  environment_variables.each { |key, value| app.info_plist["ENV_#{key}"] = value }
 end
