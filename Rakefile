@@ -35,6 +35,13 @@ Motion::Project::App.setup do |app|
       'CFBundleURLSchemes' => ["#{ENV['APP_IDENTIFIER']}.GetFromOacentral"]
     }
   ]
+  # 非TSLで通信できるように
+  app.info_plist['NSAppTransportSecurity'] = { 'NSAllowsArbitraryLoads' => true }
   # app/env.rbとセットで効く
   environment_variables.each { |key, value| app.info_plist["ENV_#{key}"] = value }
+
+  app.pods do
+    pod 'AFNetworking'
+    pod 'Reachability'
+  end
 end

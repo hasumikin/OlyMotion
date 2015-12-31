@@ -20,11 +20,15 @@ PODS:
   - AFNetworking/UIKit (2.5.4):
     - AFNetworking/NSURLConnection
     - AFNetworking/NSURLSession
+  - Reachability (3.2)
 
 DEPENDENCIES:
+  - AFNetworking
   - AFNetworking (~> 2.5.0)
+  - Reachability
 
 SPEC CHECKSUMS:
   AFNetworking: 86df366d46ebb9f15074a8e7c6eb9fd41fa8b501
+  Reachability: 3c71d50935b3b3160760ffc6932418fb229c5544
 
 COCOAPODS: 0.39.0
