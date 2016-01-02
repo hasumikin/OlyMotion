@@ -21,6 +21,7 @@ Motion::Project::App.setup do |app|
     :products => %w(OLYCameraKit),
     :headers_dir => 'Headers'
     )
+  app.frameworks += %w(CoreBluetooth)
 
   app.identifier           = ENV['APP_IDENTIFIER']
   app.codesign_certificate = ENV['APP_CODESIGN_CERTIFICATE']
