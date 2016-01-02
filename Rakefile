@@ -26,7 +26,7 @@ Motion::Project::App.setup do |app|
   app.identifier           = ENV['APP_IDENTIFIER']
   app.codesign_certificate = ENV['APP_CODESIGN_CERTIFICATE']
   app.provisioning_profile = ENV['APP_PROVISIONING_PROFILE']
-  # ↓Olympun謹製のOA.Centralを呼び出せるようにplist設定する
+  # ↓Olympus謹製のOA.Centralを呼び出せるようにplist設定する
   app.info_plist['LSApplicationQueriesSchemes'] = %w(jp.olympus-imaging.oacentral)
   # ↓この設定によって、OA.Centralから呼び出してもらえるようになる。
   # Xcodeでは Info > URL Types のなかに書かれているものです
@@ -44,5 +44,6 @@ Motion::Project::App.setup do |app|
   app.pods do
     pod 'AFNetworking'
     pod 'Reachability'
+    pod 'MBProgressHUD'
   end
 end

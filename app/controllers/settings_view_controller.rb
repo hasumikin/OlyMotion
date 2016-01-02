@@ -1,5 +1,7 @@
 class SettingsViewController < UIViewController
 
+  include UIViewControllerThreading
+
   WifiConnectionChangedNotification = "WifiConnectionChangedNotification"
 
   attr_accessor :bluetoothConnector, :wifiConnector
@@ -291,6 +293,8 @@ class SettingsViewController < UIViewController
         self.navigationController.pushViewController(controller, animated:true)
       end
     when 'Connect with Bluetooth'
+      didSelectRowAtConnectWithUsingBluetoothCell
+    when 'Connect with Wi-Fi'
       didSelectRowAtConnectWithUsingWifiCell
     end
   end
@@ -329,8 +333,8 @@ class SettingsViewController < UIViewController
     end
 
     # Bluetoothデバイスの設定を確認します。
-    bluetoothLocalName = @setting.bluetoothLocalName
-    bluetoothPasscode = @setting.bluetoothPasscode
+    bluetoothLocalName = @setting['bluetoothLocalName']
+    bluetoothPasscode = @setting['bluetoothPasscode']
     if demandToWakeUpWithUsingBluetooth
       if !bluetoothLocalName || bluetoothLocalName.length == 0
         # Bluetoothデバイスの設定が不完全です。
@@ -339,19 +343,19 @@ class SettingsViewController < UIViewController
       end
     end
 
-    # カメラの電源を投入し接続を開始します。
-    # 作者の環境ではiPhone 4Sだと電源投入から接続確率まで20秒近くかかっています。
+    # # カメラの電源を投入し接続を開始します。
+    # # 作者の環境ではiPhone 4Sだと電源投入から接続確率まで20秒近くかかっています。
     weakSelf = WeakRef.new(self)
     weakSelf.bluetoothConnector.services = OLYCamera.bluetoothServices
     weakSelf.bluetoothConnector.localName = bluetoothLocalName
-    weakSelf.showProgress(true, whileExecutingBlock: lambda { |progressView|
+    weakSelf.showProgressWhileExecutingBlock(true) { |progressView|
       puts "weakSelf=#{weakSelf}"
 
       # カメラに電源投入を試みます。
       if demandToWakeUpWithUsingBluetooth
         # カメラを探します。
         error_ptr = Pointer.new(:object)
-        if weakSelf.bluetoothConnector.connectionStatus == BluetoothConnectionStatusNotFound
+        if weakSelf.bluetoothConnector.connectionStatus == 'BluetoothConnectionStatusNotFound'
           if !weakSelf.bluetoothConnector.discoverPeripheral(error_ptr)
             # カメラが見つかりませんでした。
             error = error_ptr[0]
@@ -361,7 +365,7 @@ class SettingsViewController < UIViewController
         end
 
         # カメラにBluetooth接続します。
-        if weakSelf.bluetoothConnector.connectionStatus == BluetoothConnectionStatusNotConnected
+        if weakSelf.bluetoothConnector.connectionStatus == 'BluetoothConnectionStatusNotConnected'
           if !weakSelf.bluetoothConnector.connectPeripheral(error_ptr)
             # カメラにBluetooth接続できませんでした。
             error = error_ptr[0]
@@ -426,10 +430,10 @@ class SettingsViewController < UIViewController
           # Wi-Fi接続が有効になりませんでした。
           if weakSelf.wifiConnector.connectionStatus != 'WifiConnectionStatusConnected'
             # カメラにアクセスできるWi-Fi接続は見つかりませんでした。
-            App.alert "$desc:CouldNotDiscoverWifiConnection"
+            App.alert "CouldNotDiscoverWifiConnection"
           else
             # カメラにアクセスできるWi-Fi接続ではありませんでした。(すでに別のアクセスポイントに接続している)
-            App.alert "$desc:WifiConnectionIsNotCamera"
+            App.alert "WifiConnectionIsNotCamera"
           end
           return
         end
@@ -439,46 +443,46 @@ class SettingsViewController < UIViewController
         puts "To wake the camera up is success."
       end
 
-      # カメラにアプリ接続します。
-      error_ptr = Pointer.new(:object)
-      unless @camera.connect(OLYCameraConnectionTypeWiFi, error:error_ptr)
-        # カメラにアプリ接続できませんでした。
-        error = error_ptr[0]
-        # [weakSelf showAlertMessage:error.localizedDescription title:NSLocalizedString(@"$title:CouldNotConnectWifi", @"ConnectionViewController.didSelectRowAtConnectWithUsingWifiCell")]
-        return
-      end
+    #   # カメラにアプリ接続します。
+    #   error_ptr = Pointer.new(:object)
+    #   unless @camera.connect(OLYCameraConnectionTypeWiFi, error:error_ptr)
+    #     # カメラにアプリ接続できませんでした。
+    #     error = error_ptr[0]
+    #     # [weakSelf showAlertMessage:error.localizedDescription title:NSLocalizedString(@"$title:CouldNotConnectWifi", @"ConnectionViewController.didSelectRowAtConnectWithUsingWifiCell")]
+    #     return
+    #   end
 
-      # スマホの現在時刻をカメラに設定します。
-      # MARK: 保守モードでは受け付けないのでこのタイミングしかありません。
-      unless @camera.changeTime(Time.now, error:error_ptr)
-        # 時刻が設定できませんでした。
-        error = error_ptr[0]
-        # [weakSelf showAlertMessage:error.localizedDescription title:NSLocalizedString(@"$title:CouldNotConnectWifi", @"ConnectionViewController.didSelectRowAtConnectWithUsingWifiCell")]
-        return
-      end
+    #   # スマホの現在時刻をカメラに設定します。
+    #   # MARK: 保守モードでは受け付けないのでこのタイミングしかありません。
+    #   unless @camera.changeTime(Time.now, error:error_ptr)
+    #     # 時刻が設定できませんでした。
+    #     error = error_ptr[0]
+    #     # [weakSelf showAlertMessage:error.localizedDescription title:NSLocalizedString(@"$title:CouldNotConnectWifi", @"ConnectionViewController.didSelectRowAtConnectWithUsingWifiCell")]
+    #     return
+    #   end
 
-      # MARK: 実行モードがスタンドアロンモードのまま放置するとカメラの自動スリープが働いてしまってスタンドアロンモード以外へ変更できなくなってしまうようです。
-      # カメラの自動スリープを防止するため、あらかじめ実行モードをスタンドアロンモード以外に変更しておきます。(取り敢えず保守モードへ)
-      unless @camera.changeRunMode(OLYCameraRunModeMaintenance, error:error_ptr)
-        # 実行モードを変更できませんでした。
-        error = error_ptr[0]
-        # [weakSelf showAlertMessage:error.localizedDescription title:NSLocalizedString(@"$title:CouldNotConnectWifi", @"ConnectionViewController.didSelectRowAtConnectWithUsingWifiCell")]
-        return
-      end
+    #   # MARK: 実行モードがスタンドアロンモードのまま放置するとカメラの自動スリープが働いてしまってスタンドアロンモード以外へ変更できなくなってしまうようです。
+    #   # カメラの自動スリープを防止するため、あらかじめ実行モードをスタンドアロンモード以外に変更しておきます。(取り敢えず保守モードへ)
+    #   unless @camera.changeRunMode(OLYCameraRunModeMaintenance, error:error_ptr)
+    #     # 実行モードを変更できませんでした。
+    #     error = error_ptr[0]
+    #     # [weakSelf showAlertMessage:error.localizedDescription title:NSLocalizedString(@"$title:CouldNotConnectWifi", @"ConnectionViewController.didSelectRowAtConnectWithUsingWifiCell")]
+    #     return
+    #   end
 
-      # 画面表示を更新します。
-      Dispatch::Queue.main.async {
-        weakSelf.updateShowWifiSettingCell
-        weakSelf.updateShowBluetoothSettingCell
-        weakSelf.updateCameraConnectionCells
-        # weakSelf.updateCameraOperationCells
-        # weakSelf.tableView.scrollToRowAtIndexPath(weakSelf.visibleWhenConnected, atScrollPosition:UITableViewScrollPositionMiddle, animated:true)
-      }
+    #   # 画面表示を更新します。
+    #   Dispatch::Queue.main.async {
+    #     weakSelf.updateShowWifiSettingCell
+    #     weakSelf.updateShowBluetoothSettingCell
+    #     weakSelf.updateCameraConnectionCells
+    #     # weakSelf.updateCameraOperationCells
+    #     # weakSelf.tableView.scrollToRowAtIndexPath(weakSelf.visibleWhenConnected, atScrollPosition:UITableViewScrollPositionMiddle, animated:true)
+    #   }
 
-      # アプリ接続が完了しました。
-      weakSelf.reportBlockFinishedToProgress(progressView)
-      puts ""
-    })
+    #   # アプリ接続が完了しました。
+    #   weakSelf.reportBlockFinishedToProgress(progressView)
+    #   puts ""
+    }
   end
 
 end

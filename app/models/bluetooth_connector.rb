@@ -2,7 +2,7 @@ class BluetoothConnector
   BluetoothConnectionChangedNotification = "BluetoothConnectionChangedNotification"
   BluetoothConnectorErrorDomain = "BluetoothConnectorErrorDomain"
 
-  attr_accessor :localName, :running, :queue, :centralManager
+  attr_accessor :localName, :running, :queue, :centralManager, :services
 
   def initialize
     @services = nil
@@ -102,7 +102,8 @@ class BluetoothConnector
       userInfo = {
         'NSLocalizedDescriptionKey' => "DiscoveringBluetoothPeripheralTimedOut"
       }
-      theError = NSError.errorWithDomain(BluetoothConnectorErrorDomain, code:'BluetoothConnectorErrorTimeout', userInfo:userInfo)
+      # theError = NSError.errorWithDomain(BluetoothConnectorErrorDomain, code:'BluetoothConnectorErrorTimeout', userInfo:userInfo)
+      theError = NSError.errorWithDomain(BluetoothConnectorErrorDomain, code:1006, userInfo:userInfo)
       puts "error=#{theError}"
       if error
         error = theError
@@ -240,7 +241,7 @@ class BluetoothConnector
       notificationCenter.postNotificationName(BluetoothConnectionChangedNotification, object:self)
     else
       userInfo = {
-        'NSLocalizedDescriptionKey' => "DisconnectingBluetoothPeripheralTimedOut"
+        NSLocalizedDescriptionKey => "DisconnectingBluetoothPeripheralTimedOut"
       }
       theError = NSError.errorWithDomain(BluetoothConnectorErrorDomain, code:'BluetoothConnectorErrorTimeout', userInfo:userInfo)
       puts "error=#{theError}"
