@@ -64,9 +64,7 @@ module UIViewControllerThreading
 
     # ビューを最前面に表示して処理ブロックを実行開始します。
     progressBlock = -> {
-      if block
-        block.call(progressHUD)
-      end
+      block.call(progressHUD) if block
     }
     window.addSubview(progressHUD)
     progressHUD.showAnimated(true, whileExecutingBlock:progressBlock)

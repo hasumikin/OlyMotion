@@ -8,6 +8,7 @@ gem 'bubble-wrap'
 gem 'motion-cocoapods'
 gem 'afmotion'
 gem 'motion-layout'
+gem 'ib'
 
 # ruby汎用のgems
 gem 'dotenv'

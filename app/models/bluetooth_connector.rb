@@ -2,7 +2,16 @@ class BluetoothConnector
   BluetoothConnectionChangedNotification = "BluetoothConnectionChangedNotification"
   BluetoothConnectorErrorDomain = "BluetoothConnectorErrorDomain"
 
-  attr_accessor :localName, :running, :queue, :centralManager, :services
+  # エラーコード
+  BluetoothConnectorErrorUnknown      = 1000 # 不明
+  BluetoothConnectorErrorBusy         = 1001 # 処理中につき多忙
+  BluetoothConnectorErrorNotAvailable = 1002 # 利用できない
+  BluetoothConnectorErrorNoPeripheral = 1003 # ペリフェラルがない
+  BluetoothConnectorErrorDisconnected = 1004 # すでに接続が解除されている
+  BluetoothConnectorErrorConnected    = 1005 # すでに接続している
+  BluetoothConnectorErrorTimeout      = 1006 # 処理待ちがタイムアウトした
+
+  attr_accessor :localName, :running, :queue, :centralManager, :services, :peripheral
 
   def initialize
     @services = nil
@@ -16,15 +25,8 @@ class BluetoothConnector
     # しかしうまくいかず、
     # https://groups.google.com/forum/#!topic/rubymotion/ja1HGzqPbF8
     # をみて↓のようにしてみた
-    @centralManager = CBCentralManager.alloc.initWithDelegate(self, queue:Dispatch::Queue.main.dispatch_object)
-  end
-
-  def dealloc
-    @services = nil
-    @localName = nil
-    @peripheral = nil
-    #@queue = nil
-    @centralManager = nil
+    queue = Dispatch::Queue.concurrent("#{App::ENV['APP_IDENTIFIER']}.BluetoothConnector.queue").dispatch_object
+    @centralManager = CBCentralManager.alloc.initWithDelegate(self, queue:queue)
   end
 
   def connectionStatus
@@ -47,13 +49,12 @@ class BluetoothConnector
   def discoverPeripheral(error)
     if @running
       # すでに実行中です。
-      internalError = self.createError('BluetoothConnectorErrorBusy', description:"DiscorverPeripheralIsRunnning")
+      internalError = createError(BluetoothConnectorErrorBusy, description:"DiscorverPeripheralIsRunnning")
       puts "error=#{internalError}"
-      if error
-        error = internalError
-      end
+      error[0] = internalError if error
       return true
     end
+
     # MARK: セントラルマネージャを生成してすぐにステータスを参照するとまだ電源オンしていない場合があります。
     managerStartTime = Time.now
     while (@centralManager.state != CBCentralManagerStatePoweredOn && Time.now - managerStartTime < @timeout)
@@ -61,20 +62,17 @@ class BluetoothConnector
     end
     if @centralManager.state != CBCentralManagerStatePoweredOn
       # Bluetoothデバイスは利用できません。
-      internalError = self.createError('BluetoothConnectorErrorNotAvailable', description:"CBCentralManagerStateNotPoweredOn")
+      internalError = createError(BluetoothConnectorErrorNotAvailable, description:"CBCentralManagerStateNotPoweredOn")
       puts "error=#{internalError}"
-      if error
-        error = internalError
-      end
+      error[0] = internalError if error
       return false
     end
+
     if @peripheral && @peripheral.name == @localName
       # すでに検索してあるんじゃないですか。
-      internalError = self.createError('BluetoothConnectorErrorConnected', description:"BluetoothPeripheralFound")
+      internalError = createError(BluetoothConnectorErrorConnected, description:"BluetoothPeripheralFound")
       puts "error=#{internalError}"
-      if error
-        error = internalError
-      end
+      error[0] = internalError if error
       # エラーは無視して続行します。
     end
 
@@ -83,9 +81,9 @@ class BluetoothConnector
     @peripheral = nil
     @centralManager.stopScan
     scanOptions = {
-      'CBCentralManagerScanOptionAllowDuplicatesKey' => false
+      CBCentralManagerScanOptionAllowDuplicatesKey => false
     }
-    @centralManager.scanForPeripheralsWithServices(self.services, options:scanOptions)
+    @centralManager.scanForPeripheralsWithServices(@services, options:scanOptions)
     scanStartTime = Time.now
     while (!@peripheral && Time.now - scanStartTime < @timeout)
       sleep(0.05)
@@ -99,15 +97,9 @@ class BluetoothConnector
       notificationCenter = NSNotificationCenter.defaultCenter
       notificationCenter.postNotificationName(BluetoothConnectionChangedNotification, object:self)
     else
-      userInfo = {
-        'NSLocalizedDescriptionKey' => "DiscoveringBluetoothPeripheralTimedOut"
-      }
-      # theError = NSError.errorWithDomain(BluetoothConnectorErrorDomain, code:'BluetoothConnectorErrorTimeout', userInfo:userInfo)
-      theError = NSError.errorWithDomain(BluetoothConnectorErrorDomain, code:1006, userInfo:userInfo)
+      theError = createError(BluetoothConnectorErrorTimeout, description:'DiscoveringBluetoothPeripheralTimedOut')
       puts "error=#{theError}"
-      if error
-        error = theError
-      end
+      error[0] = theError if error
     end
     return discovered
   end
@@ -115,13 +107,12 @@ class BluetoothConnector
   def connectPeripheral(error)
     if @running
       # すでに実行中です。
-      internalError = self.createError('BluetoothConnectorErrorBusy', description:"ConnectPeripheralIsRunnning")
+      internalError = createError(BluetoothConnectorErrorBusy, description:"ConnectPeripheralIsRunnning")
       puts "error=#{internalError}"
-      if error
-        *error = internalError;
-      end
+      error[0] = internalError if error
       return false
     end
+
     # MARK: セントラルマネージャを生成してすぐにステータスを参照するとまだ電源オンしていない場合があります。
     managerStartTime = Time.now
     while (@centralManager.state != CBCentralManagerStatePoweredOn && Time.now - managerStartTime < @timeout)
@@ -129,38 +120,34 @@ class BluetoothConnector
     end
     if @centralManager.state != CBCentralManagerStatePoweredOn
       # Bluetoothデバイスは利用できません。
-      internalError = self.createError('BluetoothConnectorErrorNotAvailable', description:"CBCentralManagerStateNotPoweredOn")
+      internalError = createError(BluetoothConnectorErrorNotAvailable, description:"CBCentralManagerStateNotPoweredOn")
       puts "error=#{internalError}"
-      if error
-        error = internalError
-      end
+      error[0] = internalError if error
       return false
     end
+
     unless @peripheral
       # ペリフェラルが用意されていません。
-      internalError = self.createError('BluetoothConnectorErrorNoPeripheral', description:"NoBluetoothPeripherals")
+      internalError = createError(BluetoothConnectorErrorNoPeripheral, description:"NoBluetoothPeripherals")
       puts "error=#{internalError}"
-      if error
-        error = internalError
-      end
+      error[0] = internalError if error
       return false
     end
+
     if @peripheral && @peripheral.name == @localName && @peripheral.state == CBPeripheralStateConnected
       # すでに接続してあるんじゃないですか。
-      internalError = self.createError('BluetoothConnectorErrorConnected', description:"BluetoothPeripheralConnected")
+      internalError = createError(BluetoothConnectorErrorConnected, description:"BluetoothPeripheralConnected")
       puts "error=#{internalError}"
-      if error
-        error = internalError
-      end
+      error[0] = internalError if error
       # エラーは無視して続行します。
     end
 
     # ペリフェラルに接続します。
     @running = true
     connectOptions = {
-      'CBConnectPeripheralOptionNotifyOnConnectionKey' => false,
-      'CBConnectPeripheralOptionNotifyOnDisconnectionKey' => false,
-      'CBConnectPeripheralOptionNotifyOnNotificationKey' => false
+      CBConnectPeripheralOptionNotifyOnConnectionKey    => false,
+      CBConnectPeripheralOptionNotifyOnDisconnectionKey => false,
+      CBConnectPeripheralOptionNotifyOnNotificationKey  => false
     }
     @centralManager.connectPeripheral(@peripheral, options:connectOptions)
     scanStartTime = Time.now
@@ -176,52 +163,45 @@ class BluetoothConnector
       notificationCenter.postNotificationName(BluetoothConnectionChangedNotification, object:self)
     else
       userInfo = {
-        'NSLocalizedDescriptionKey' => "ConnectingBluetoothPeripheralTimedOut"
+        NSLocalizedDescriptionKey => "ConnectingBluetoothPeripheralTimedOut"
       }
-      theError = NSError.errorWithDomain(BluetoothConnectorErrorDomain, code:'BluetoothConnectorErrorTimeout', userInfo:userInfo)
+      theError = NSError.errorWithDomain(BluetoothConnectorErrorDomain, code:BluetoothConnectorErrorTimeout, userInfo:userInfo)
       puts "error=#{theError}"
-      if error
-        error = theError
-      end
+      error[0] = theError if error
     end
-    return connected
+    connected
   end
 
   def disconnectPeripheral(error)
     if @running
       # すでに実行中です。
-      internalError = self.createError('BluetoothConnectorErrorBusy', description:"DisconnectPeripheralIsRunnning")
+      internalError = createError('BluetoothConnectorErrorBusy', description:"DisconnectPeripheralIsRunnning")
       puts "error=#{internalError}"
-      if error
-        error = internalError
-      end
+      error[0] = internalError if error
       return false
     end
+
     if @centralManager.state != CBCentralManagerStatePoweredOn
       # Bluetoothデバイスは利用できません。
-      internalError = self.createError('BluetoothConnectorErrorNotAvailable', description:"CBCentralManagerStateNotPoweredOn")
+      internalError = createError(BluetoothConnectorErrorNotAvailable, description:"CBCentralManagerStateNotPoweredOn")
       puts "error=#{internalError}"
-      if error
-        error = internalError
-      end
+      error[0] = internalError if error
       return false
     end
+
     unless @peripheral
       # ペリフェラルが用意されていません。
-      internalError = self.createError('BluetoothConnectorErrorNoPeripheral', description:"NoBluetoothPeripherals")
+      internalError = createError(BluetoothConnectorErrorNoPeripheral, description:"NoBluetoothPeripherals")
       puts "error=#{internalError}"
-      if error
-        error = internalError
-      end
+      error[0] = internalError if error
       return false
     end
+
     if @peripheral && @peripheral.name == @localName && @peripheral.state == CBPeripheralStateDisconnected
       # すでに切断してあるんじゃないですか。
-      internalError = self.createError('BluetoothConnectorErrorDisconnected', description:"BluetoothPeripheralDisconnected")
+      internalError = createError(BluetoothConnectorErrorDisconnected, description:"BluetoothPeripheralDisconnected")
       puts "error=#{internalError}"
-      if error
-        error = internalError
-      end
+      error[0] = internalError if error
       # エラーは無視して続行します。
     end
 
@@ -243,13 +223,11 @@ class BluetoothConnector
       userInfo = {
         NSLocalizedDescriptionKey => "DisconnectingBluetoothPeripheralTimedOut"
       }
-      theError = NSError.errorWithDomain(BluetoothConnectorErrorDomain, code:'BluetoothConnectorErrorTimeout', userInfo:userInfo)
+      theError = NSError.errorWithDomain(BluetoothConnectorErrorDomain, code:BluetoothConnectorErrorTimeout, userInfo:userInfo)
       puts "error=#{theError}"
-      if error
-        error = theError
-      end
+      error[0] = theError if error
     end
-    return disconnected
+    disconnected
   end
 
   # セントラルマネージャの状態が変わった時に呼び出されます。
@@ -267,7 +245,7 @@ class BluetoothConnector
   end
 
   # セントラルマネージャがペリフェラルを見つけた時に呼び出されます。
-  def centralManager(central, didDiscoverPeripheral:peripheral, advertisementData:advertisementData, rssi:rSSI) # rssiをとりあえず小文字にしてコンパイルを通す
+  def centralManager(central, didDiscoverPeripheral:peripheral, advertisementData:advertisementData, RSSI:rssi) # `RSSI:RSSI` -> `RSSI:rssi`にしたらコンパイルが通った
     puts "peripheral=#{peripheral}, advertisementData=#{advertisementData}, RSSI=#{rssi}"
 
     if advertisementData[CBAdvertisementDataLocalNameKey] == @localName
@@ -300,12 +278,8 @@ class BluetoothConnector
   # エラー情報を作成します。
   def createError(code, description:description)
     puts "code=#{code}, description=#{description}"
-
-    userInfo = {
-      'NSLocalizedDescriptionKey' => description
-    }
-    error = NSError.alloc.initWithDomain(BluetoothConnectorErrorDomain, code:code, userInfo:userInfo)
-    return error
+    userInfo = { NSLocalizedDescriptionKey => description }
+    NSError.alloc.initWithDomain(BluetoothConnectorErrorDomain, code:code, userInfo:userInfo)
   end
 
 end

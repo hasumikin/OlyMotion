@@ -305,12 +305,14 @@ class SettingsViewController < UIViewController
     demandToWakeUpWithUsingBluetooth = false
     if @wifiConnector.connectionStatus == 'WifiConnectionStatusConnected'
       if @wifiConnector.cameraStatus == 'WifiCameraStatusReachable'
+        # App.alert "2"
         # Wi-Fi接続済みで接続先はカメラ
       elsif @wifiConnector.cameraStatus == 'WifiCameraStatusUnreachable'
         # Wi-Fi接続済みで接続先はカメラではない
         if @bluetoothConnector.connectionStatus != 'BluetoothConnectionStatusUnknown'
           # Wi-Fi接続済みで接続先はカメラ以外なため自動でカメラに接続できる見込みなし
           # だが、カメラの電源を入れることぐらいはできるかもしれない
+          # App.alert "3"
           demandToWakeUpWithUsingBluetooth = true
         else
           # Wi-Fi接続済みで接続先はカメラ以外なため自動でカメラに接続できる見込みなし
@@ -324,6 +326,7 @@ class SettingsViewController < UIViewController
     else
       if @bluetoothConnector.connectionStatus != 'BluetoothConnectionStatusUnknown'
         # Wi-Fi未接続でBluetooth経由の電源投入により自動接続できる見込みあり
+        # App.alert "4"
         demandToWakeUpWithUsingBluetooth = true
       else
         # Wi-Fi未接続でBluetooth使用不可なため自動でカメラに接続できる見込みなし
@@ -348,7 +351,8 @@ class SettingsViewController < UIViewController
     weakSelf = WeakRef.new(self)
     weakSelf.bluetoothConnector.services = OLYCamera.bluetoothServices
     weakSelf.bluetoothConnector.localName = bluetoothLocalName
-    weakSelf.showProgressWhileExecutingBlock(true) { |progressView|
+    # App.alert '接続開始'
+    weakSelf.showProgressWhileExecutingBlock(true) do |progressView|
       puts "weakSelf=#{weakSelf}"
 
       # カメラに電源投入を試みます。
@@ -356,11 +360,11 @@ class SettingsViewController < UIViewController
         # カメラを探します。
         error_ptr = Pointer.new(:object)
         if weakSelf.bluetoothConnector.connectionStatus == 'BluetoothConnectionStatusNotFound'
-          if !weakSelf.bluetoothConnector.discoverPeripheral(error_ptr)
+          unless weakSelf.bluetoothConnector.discoverPeripheral(error_ptr)
             # カメラが見つかりませんでした。
             error = error_ptr[0]
-            # weakSelf.showAlertMessage(error.localizedDescription, title:NSLocalizedString(@"$title:CouldNotConnectWifi", @"ConnectionViewController.didSelectRowAtConnectWithUsingWifiCell")]
-            return
+            weakSelf.alertOnMainThreadWithMessage(error.localizedDescription, title: "CouldNotConnectWifi")
+            next #【注】 Obj-c版では`return`と書いているが、rubyではnextにするとよさげ
           end
         end
 
@@ -369,7 +373,8 @@ class SettingsViewController < UIViewController
           if !weakSelf.bluetoothConnector.connectPeripheral(error_ptr)
             # カメラにBluetooth接続できませんでした。
             error = error_ptr[0]
-            # [weakSelf showAlertMessage:error.localizedDescription title:NSLocalizedString(@"$title:CouldNotConnectWifi", @"ConnectionViewController.didSelectRowAtConnectWithUsingWifiCell")]
+            # App.alert 'CouldNotConnectWifi'
+            # [weakSelf alertOnMainThread:message: error.localizedDescription title:NSLocalizedString(@"$title:CouldNotConnectWifi", @"ConnectionViewController.didSelectRowAtConnectWithUsingWifiCell")]
             return
           end
         end
@@ -397,7 +402,7 @@ class SettingsViewController < UIViewController
             puts "An error occurred, but ignore it."
             wokenUp = true
           else
-            # weakSelf.showAlertMessage(error.localizedDescription, title:NSLocalizedString(@"$title:CouldNotConnectWifi", @"ConnectionViewController.didSelectRowAtConnectWithUsingWifiCell")]
+            # weakSelf.alertOnMainThreadWithMessage(error.localizedDescription, title:NSLocalizedString(@"$title:CouldNotConnectWifi", @"ConnectionViewController.didSelectRowAtConnectWithUsingWifiCell")]
           end
         end
         @camera.bluetoothPeripheral = nil
@@ -448,7 +453,7 @@ class SettingsViewController < UIViewController
     #   unless @camera.connect(OLYCameraConnectionTypeWiFi, error:error_ptr)
     #     # カメラにアプリ接続できませんでした。
     #     error = error_ptr[0]
-    #     # [weakSelf showAlertMessage:error.localizedDescription title:NSLocalizedString(@"$title:CouldNotConnectWifi", @"ConnectionViewController.didSelectRowAtConnectWithUsingWifiCell")]
+    #     # [weakSelf alertOnMainThread:message: error.localizedDescription title:NSLocalizedString(@"$title:CouldNotConnectWifi", @"ConnectionViewController.didSelectRowAtConnectWithUsingWifiCell")]
     #     return
     #   end
 
@@ -457,7 +462,7 @@ class SettingsViewController < UIViewController
     #   unless @camera.changeTime(Time.now, error:error_ptr)
     #     # 時刻が設定できませんでした。
     #     error = error_ptr[0]
-    #     # [weakSelf showAlertMessage:error.localizedDescription title:NSLocalizedString(@"$title:CouldNotConnectWifi", @"ConnectionViewController.didSelectRowAtConnectWithUsingWifiCell")]
+    #     # [weakSelf alertOnMainThread:message: error.localizedDescription title:NSLocalizedString(@"$title:CouldNotConnectWifi", @"ConnectionViewController.didSelectRowAtConnectWithUsingWifiCell")]
     #     return
     #   end
 
@@ -466,7 +471,7 @@ class SettingsViewController < UIViewController
     #   unless @camera.changeRunMode(OLYCameraRunModeMaintenance, error:error_ptr)
     #     # 実行モードを変更できませんでした。
     #     error = error_ptr[0]
-    #     # [weakSelf showAlertMessage:error.localizedDescription title:NSLocalizedString(@"$title:CouldNotConnectWifi", @"ConnectionViewController.didSelectRowAtConnectWithUsingWifiCell")]
+    #     # [weakSelf alertOnMainThread:message: error.localizedDescription title:NSLocalizedString(@"$title:CouldNotConnectWifi", @"ConnectionViewController.didSelectRowAtConnectWithUsingWifiCell")]
     #     return
     #   end
 
@@ -482,6 +487,45 @@ class SettingsViewController < UIViewController
     #   # アプリ接続が完了しました。
     #   weakSelf.reportBlockFinishedToProgress(progressView)
     #   puts ""
+    end
+  end
+
+  # 進捗画面に電源投入中を報告します。
+  # 【重要】サイズ的ユニバーサル画像リソースのためにgem 'ib'をつかっています
+  # 使い方：http://blog.76things.com/asset-catalogs-with-rubymotion/
+  def reportBlockWakingUp(progress)
+    Dispatch::Queue.main.sync {
+      images = [
+        UIImage.imageNamed("Progress-Power-10"),
+        UIImage.imageNamed("Progress-Power-20"),
+        UIImage.imageNamed("Progress-Power-30"),
+        UIImage.imageNamed("Progress-Power-40"),
+        UIImage.imageNamed("Progress-Power-50"),
+        UIImage.imageNamed("Progress-Power-60"),
+        UIImage.imageNamed("Progress-Power-70"),
+        UIImage.imageNamed("Progress-Power-80"),
+        UIImage.imageNamed("Progress-Power-90"),
+        UIImage.imageNamed("Progress-Power-100"),
+        UIImage.imageNamed("Progress-Power-70"),
+        UIImage.imageNamed("Progress-Power-40")
+      ]
+      # UIImageViewAnimation.progressImageView
+      progressImageView = UIImageViewAnimation.alloc.initWithImage(images[0])
+      progressImageView.tintColor = UIColor.whiteColor
+      progressImageView.setAnimationTemplateImages(images)
+      progressImageView.animationDuration = 1.0
+      progressImageView.alpha = 0.75
+
+      progress.customView = progressImageView
+      progress.mode = MBProgressHUDModeCustomView
+
+      progressImageView.startAnimating
+    }
+  end
+
+  def alertOnMainThreadWithMessage(message, title:title)
+    Dispatch::Queue.main.async {
+      App.alert(title, message:message)
     }
   end
 
