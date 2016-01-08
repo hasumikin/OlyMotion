@@ -22,9 +22,13 @@ Motion::Project::App.setup do |app|
   # ↓この設定によって、OA.Centralから呼び出してもらえるようになる。
   # Xcodeでは Info > URL Types のなかに書かれているものです
   app.info_plist['CFBundleURLTypes'] = [
-    {
+    { # OA.Centralアプリから呼び出してもらう
       'CFBundleTypeRole'   => 'Viewer',
       'CFBundleURLSchemes' => ["#{ENV['APP_IDENTIFIER']}.GetFromOacentral"]
+    },
+    { # 設定アプリ（のWi-Fi画面）を呼び出す
+      'CFBundleTypeRole'   => 'Editor',
+      'CFBundleURLSchemes' => ['prefs']
     }
   ]
   # 非TSLで通信できるように
@@ -46,5 +50,4 @@ Motion::Project::App.setup do |app|
     :headers_dir => 'Headers'
     )
   app.bridgesupport_files << '/Users/hasumi/Library/RubyMotion/build/Users/hasumi/work/OlyMotion/vendor/OLYCameraKit.framework/OLYCameraKit.framework.bridgesupport'
-  # app.embedded_frameworks += ['/path/to/framework.framework'
 end

@@ -30,37 +30,30 @@ class SettingsViewController < UIViewController
             outlet: :@showBluetoothSettingCell
           },
           { label: 'Wi-Fi',
-            detail:
-            '$ssid',
-            accessory_type: UITableViewCellAccessoryNone,
+            detail: '$ssid',
+            accessory_type: UITableViewCellAccessoryDisclosureIndicator,
             outlet: :@showWifiSettingCell
           }
         ]
       },
       { title: 'Connection',
         rows: [
-          { label:
-            'Connect with Bluetooth',
+          { label: 'Connect with Bluetooth',
             detail: '',
-            accessory_type:
-            UITableViewCellAccessoryNone,
+            accessory_type: UITableViewCellAccessoryNone,
             outlet: :@connectWithUsingBluetoothCell
           },
-          { label:
-            'Connect with Wi-Fi',
+          { label: 'Connect with Wi-Fi',
             detail: '',
             accessory_type: UITableViewCellAccessoryNone,
             outlet: :@connectWithUsingWifiCell
           },
-          { label:
-            'Disconnect',
+          { label: 'Disconnect',
             detail: '',
-            accessory_type:
-            UITableViewCellAccessoryNone,
+            accessory_type: UITableViewCellAccessoryNone,
             outlet: :@disconnectCell
           },
-          { label:
-            'Disconnect and Sleep',
+          { label: 'Disconnect and Sleep',
             detail: '',
             accessory_type: UITableViewCellAccessoryNone,
             outlet: :@disconnectAndSleepCell
@@ -155,8 +148,8 @@ class SettingsViewController < UIViewController
     end
 
     # 画面表示を更新します。
-    self.updateShowBluetoothSettingCell
-    self.updateCameraConnectionCells
+    updateShowBluetoothSettingCell
+    updateCameraConnectionCells
     # self.updateCameraOperationCells
 
     # カメラ操作の子画面を表示している場合は、この画面に戻します。
@@ -181,63 +174,85 @@ class SettingsViewController < UIViewController
   end
 
   # ひとつひとつのセルのenableをスイッチ
+  # def updateCell(outlet, enable, accessoryType = nil)
+  #   if @table
+  #     dp "tableView!!!!! #{outlet}"
+  #     dp "enable=#{enable}"
+  #     dp "accessoryType=#{accessoryType}"
+  #     section_index = nil
+  #     row_index = nil
+  #     @table_data.each_with_index do |section, index|
+  #       if row_index = section[:rows].index{|row| row[:outlet] == outlet}
+  #         section_index = index
+  #         break
+  #       end
+  #     end
+  #   else
+  #     dp "tableView??????? #{outlet}"
+  #   end
+  #   if row_index && section_index
+  #     indexPath = NSIndexPath.indexPathForRow(row_index, inSection:section_index)
+  #     cell = @table.cellForRowAtIndexPath(indexPath)
   def updateCell(cell, enable, accessoryType = nil)
-    if cell
-      cell.userInteractionEnabled  = enable unless enable.nil?
-      cell.textLabel.enabled       = enable unless enable.nil?
-      cell.detailTextLabel.enabled = enable unless enable.nil?
-      cell.accessoryType    = accessoryType if accessoryType
+      if @table && cell
+        cell.userInteractionEnabled  = enable unless enable.nil?
+        cell.textLabel.enabled       = enable unless enable.nil?
+        cell.detailTextLabel.enabled = enable unless enable.nil?
+        cell.accessoryType    = accessoryType if accessoryType
+      else
+        dp "cellがnil？"
+      end
     end
-  end
+  # end
 
   # アプリ接続の状態を画面に表示します。
   def updateCameraConnectionCells
     if @camera.connected && @camera.connectionType == OLYCameraConnectionTypeBluetoothLE
-      # Bluetoothで接続中です。
+      dp "Bluetoothで接続中です。"
       updateCell(@connectWithUsingBluetoothCell, false, UITableViewCellAccessoryCheckmark)
       updateCell(@connectWithUsingWiFiCell, false, UITableViewCellAccessoryNone)
       updateCell(@disconnectCell, true)
       updateCell(@disconnectAndSleepCell, true)
     elsif @camera.connected && @camera.connectionType == OLYCameraConnectionTypeWiFi
-      # Wi-Fiで接続中です。
+      dp "Wi-Fiで接続中です。"
       updateCell(@connectWithUsingBluetoothCell, false, UITableViewCellAccessoryNone)
       updateCell(@connectWithUsingWiFiCell, false, UITableViewCellAccessoryCheckmark)
       updateCell(@disconnectCell, true)
       updateCell(@disconnectAndSleepCell, true)
     else
-      # 未接続です。
+      dp "未接続です。"
       if @bluetoothConnector.connectionStatus != 'BluetoothConnectionStatusUnknown'
-        # Bluetooth使用可
+        dp "Bluetooth使用可"
         updateCell(@connectWithUsingBluetoothCell, true)
       else
-        # Bluetooth使用不可
+        dp "Bluetooth使用不可"
         updateCell(@connectWithUsingBluetoothCell, false)
       end
       if @wifiConnector.connectionStatus == 'WifiConnectionStatusConnected'
         if @wifiConnector.cameraStatus == 'WifiCameraStatusReachable'
-          # Wi-Fi接続済みで接続先はカメラ
+          dp "Wi-Fi接続済みで接続先はカメラ"
           updateCell(@connectWithUsingWiFiCell, true)
         elsif @wifiConnector.cameraStatus == 'WifiCameraStatusUnreachable'
-          # Wi-Fi接続済みで接続先はカメラではない
+          dp "Wi-Fi接続済みで接続先はカメラではない"
           if @bluetoothConnector.connectionStatus != 'BluetoothConnectionStatusUnknown'
-            # Wi-Fi接続済みで接続先はカメラ以外なため自動でカメラに接続できる見込みなし
-            # だが、カメラの電源を入れることぐらいはできるかもしれない
+            dp "Wi-Fi接続済みで接続先はカメラ以外なため自動でカメラに接続できる見込みなし"
+            dp "だが、カメラの電源を入れることぐらいはできるかもしれない"
             updateCell(@connectWithUsingWiFiCell, true)
           else
-            # Wi-Fi接続済みで接続先はカメラ以外なため自動でカメラに接続できる見込みなし
+            dp "Wi-Fi接続済みで接続先はカメラ以外なため自動でカメラに接続できる見込みなし"
             updateCell(@connectWithUsingWiFiCell, false)
           end
         else
-          # Wi-Fi接続済みで接続先は確認中
-          # カメラにアクセスできるか否かが確定するまでの間は操作を許可しない
+          dp "Wi-Fi接続済みで接続先は確認中"
+          dp "カメラにアクセスできるか否かが確定するまでの間は操作を許可しない"
           updateCell(@connectWithUsingWiFiCell, false)
         end
       else
         if @bluetoothConnector.connectionStatus != 'BluetoothConnectionStatusUnknown'
-          # Wi-Fi未接続でBluetooth経由の電源投入により自動接続できる見込みあり
+          dp "Wi-Fi未接続でBluetooth経由の電源投入により自動接続できる見込みあり"
           updateCell(@connectWithUsingWiFiCell, true)
         else
-          # Wi-Fi未接続でBluetooth使用不可なため自動でカメラに接続できる見込みなし
+          dp "Wi-Fi未接続でBluetooth使用不可なため自動でカメラに接続できる見込みなし"
           updateCell(@connectWithUsingWiFiCell, false)
         end
       end
@@ -270,7 +285,7 @@ class SettingsViewController < UIViewController
     else
       "WifiStatusUnknown2"
     end
-    @showWifiSettingCell.userInteractionEnabled = false
+    @showWifiSettingCell.userInteractionEnabled = true
   end
 
   def updateShowBluetoothSettingCell
@@ -305,10 +320,10 @@ class SettingsViewController < UIViewController
     # ↑ここまではお決まりのコード
     # ↓ここでテーブルにデータを入れる
     row = @table_data[indexPath.section][:rows][indexPath.row]
+    instance_variable_set(row[:outlet], cell) if row[:outlet]
     cell.textLabel.text       = row[:label]
     cell.detailTextLabel.text = row[:detail]
     cell.accessoryType        = row[:accessory_type]
-    instance_variable_set(row[:outlet], cell) if row[:outlet]
     # ↓セルを返す。本メソッドの末尾にこれが必須
     cell
   end
@@ -325,16 +340,18 @@ class SettingsViewController < UIViewController
 
   # テーブルの行がタップされた
   def tableView(tableView, didSelectRowAtIndexPath:indexPath)
-    tableView.deselectRowAtIndexPath(indexPath, animated: true)
-
-    case @table_data[indexPath.section][:rows][indexPath.row][:label]
-    when 'Bluetooth'
+    tableView.deselectRowAtIndexPath(indexPath, animated: false)
+    outlet = @table_data[indexPath.section][:rows][indexPath.row][:outlet]
+    case outlet
+    when :@showWifiSettingCell
+      openWifiConfig
+    when :@showBluetoothSettingCell
       BluetoothViewController.new.tap do |controller|
         self.navigationController.pushViewController(controller, animated:true)
       end
-    when 'Connect with Bluetooth'
+    when :@connectWithUsingBluetoothCellCell
       didSelectRowAtConnectWithUsingBluetoothCell
-    when 'Connect with Wi-Fi'
+    when :@connectWithUsingWifiCell
       didSelectRowAtConnectWithUsingWifiCell
     end
   end
@@ -404,7 +421,8 @@ class SettingsViewController < UIViewController
           unless weakSelf.bluetoothConnector.discoverPeripheral(error_ptr)
             # カメラが見つかりませんでした。
             error = error_ptr[0]
-            weakSelf.alertOnMainThreadWithMessage(error.localizedDescription, title: "CouldNotConnectWifi")
+            weakSelf.alertOnMainThreadWithMessage(error.localizedDescription, title: "CouldNotConnectWifi6")
+            openWifiConfig
             next #【注】 Obj-c版では`return`と書いているが、rubyではnext
           end
         end
@@ -414,8 +432,8 @@ class SettingsViewController < UIViewController
           unless weakSelf.bluetoothConnector.connectPeripheral(error_ptr)
             # カメラにBluetooth接続できませんでした。
             error = error_ptr[0]
-            App.alert 'CouldNotConnectWifi'
-            # [weakSelf alertOnMainThread:message: error.localizedDescription title:NSLocalizedString(@"$title:CouldNotConnectWifi", @"ConnectionViewController.didSelectRowAtConnectWithUsingWifiCell")]
+            weakSelf.alertOnMainThreadWithMessage(error.localizedDescription, title: "CouldNotConnectWifi7")
+            openWifiConfig
             next #【注】 Obj-c版では`return`と書いているが、rubyではnext
           end
         end
@@ -443,8 +461,9 @@ class SettingsViewController < UIViewController
             dp "An error occurred, but ignore it."
             wokenUp = true
           else
-            # weakSelf.alertOnMainThreadWithMessage(error.localizedDescription, title:NSLocalizedString(@"$title:CouldNotConnectWifi", @"ConnectionViewController.didSelectRowAtConnectWithUsingWifiCell")]
+            weakSelf.alertOnMainThreadWithMessage(error.localizedDescription, title: "CouldNotConnectWifi8")
           end
+          openWifiConfig
         end
         @camera.bluetoothPeripheral = nil
         @camera.bluetoothPassword = nil
@@ -474,12 +493,13 @@ class SettingsViewController < UIViewController
           # Wi-Fi接続が有効になりませんでした。
           if weakSelf.wifiConnector.connectionStatus != 'WifiConnectionStatusConnected'
             # カメラにアクセスできるWi-Fi接続は見つかりませんでした。
-            weakSelf.alertOnMainThreadWithMessage("CouldNotDiscoverWifiConnection", title:"CouldNotConnectWifi")
+            weakSelf.alertOnMainThreadWithMessage("CouldNotDiscoverWifiConnection", title:"CouldNotConnectWifi1")
           else
             # カメラにアクセスできるWi-Fi接続ではありませんでした。(すでに別のアクセスポイントに接続している)
-            weakSelf.alertOnMainThreadWithMessage("WifiConnectionIsNotCamera", title:"CouldNotConnectWifi")
+            weakSelf.alertOnMainThreadWithMessage("WifiConnectionIsNotCamera", title:"CouldNotConnectWifi2")
           end
-           next #【注】 Obj-c版では`return`と書いているが、rubyではnext
+          openWifiConfig
+          next #【注】 Obj-c版では`return`と書いているが、rubyではnext
         end
 
         # # 電源投入が完了しました。
@@ -492,7 +512,8 @@ class SettingsViewController < UIViewController
       unless @camera.connect(OLYCameraConnectionTypeWiFi, error:error_ptr)
         dp "カメラにアプリ接続できませんでした。"
         error = error_ptr[0]
-        weakSelf.alertOnMainThreadWithMessage(error.localizedDescription, title:"CouldNotConnectWifi")
+        weakSelf.alertOnMainThreadWithMessage(error.localizedDescription, title:"CouldNotConnectWifi3")
+        openWifiConfig
         next #【注】 Obj-c版では`return`と書いているが、rubyではnext
       end
 
@@ -501,7 +522,8 @@ class SettingsViewController < UIViewController
       unless @camera.changeTime(Time.now, error:error_ptr)
         dp "時刻が設定できませんでした。"
         error = error_ptr[0]
-        weakSelf.alertOnMainThreadWithMessage(error.localizedDescription, title:"CouldNotConnectWifi")
+        weakSelf.alertOnMainThreadWithMessage(error.localizedDescription, title:"CouldNotConnectWifi4")
+        openWifiConfig
         next #【注】 Obj-c版では`return`と書いているが、rubyではnext
       end
 
@@ -510,7 +532,8 @@ class SettingsViewController < UIViewController
       unless @camera.changeRunMode(OLYCameraRunModeMaintenance, error:error_ptr)
         dp "実行モードを変更できませんでした。"
         error = error_ptr[0]
-        weakSelf.alertOnMainThreadWithMessage(error.localizedDescription, title:"CouldNotConnectWifi")
+        weakSelf.alertOnMainThreadWithMessage(error.localizedDescription, title:"CouldNotConnectWifi5")
+        openWifiConfig
         next #【注】 Obj-c版では`return`と書いているが、rubyではnext
       end
 
@@ -529,6 +552,11 @@ class SettingsViewController < UIViewController
     end
   end
 
+  def openWifiConfig
+    url = NSURL.URLWithString("prefs:root=WIFI")
+    UIApplication.sharedApplication.openURL(url)
+  end
+
   # 進捗画面に処理完了を報告します。
   def reportBlockFinishedToProgress(progress)
     Dispatch::Queue.main.sync {
@@ -537,7 +565,7 @@ class SettingsViewController < UIViewController
       progressImageView.tintColor = UIColor.whiteColor
       progress.customView = progressImageView
       progress.mode = MBProgressHUDModeCustomView
-      sleep(0.5)
+      sleep(1)
     }
   end
 
