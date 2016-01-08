@@ -252,8 +252,8 @@ class WifiConnector
     client.get("get_connectmode.cgi") do |result|
       if result.success? && result.body.match('<connectmode>OPC</connectmode>')
         connected = true
-      elsif result.operation.response.statusCode.to_s =~ /40\d/
-        connected = false
+      # elsif result.operation.response.statusCode.to_s =~ /40\d/
+      #   connected = false
       elsif result.failure?
         connected = false
       end
