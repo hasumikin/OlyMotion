@@ -9,6 +9,7 @@ gem 'motion-cocoapods'
 gem 'afmotion'
 gem 'motion-layout'
 gem 'ib'
+gem 'motion-support'
 
 # ruby汎用のgems
 gem 'dotenv'

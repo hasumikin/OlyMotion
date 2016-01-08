@@ -1,10 +1,19 @@
 class AppDelegate
 
+  include DebugConcern
+
   AppUrlSchemeGetFromOacentral = "com.hasumikin.ipa.OlyMotion.GetFromOacentral"
   AppOACentralConfigurationDidGetNotification = "AppOACentralConfigurationDidGetNotification"
   AppOACentralConfigurationDidGetNotificationUserInfo = "AppOACentralConfigurationDidGetNotificationUserInfo"
 
+  attr_accessor :camera, :setting
+
   def application(application, didFinishLaunchingWithOptions:launchOptions)
+    @setting = AppSetting.instance
+    @calmeraLog = AppCameraLog.instance
+    @camera = AppCamera.new
+    # @camera.setConnectionDelegate(self)
+
     rootViewController = SettingsViewController.alloc.init
     rootViewController.title = 'OlyMotion'
     rootViewController.view.backgroundColor = UIColor.whiteColor
@@ -19,21 +28,19 @@ class AppDelegate
   end
 
   def application(application, openURL:url, sourceApplication:sourceApplication, annotation:annotation)
-    puts "url=#{url}, sourceApplication=#{sourceApplication}, annotation=#{annotation}"
+    dp "url=#{url}, sourceApplication=#{sourceApplication}, annotation=#{annotation}"
 
     if url.scheme == AppUrlSchemeGetFromOacentral
       # OA.Centralから呼び出されました。
       # OA.Centralが保持している設定情報を送り返してきています。
       configuration = OACentralConfiguration.alloc.initWithConfigurationURL(url)
-      puts "configuration.bleName=#{configuration.bleName}"
-      puts "configuration.bleCode=#{configuration.bleCode}"
+      dp "configuration.bleName=#{configuration.bleName}"
+      dp "configuration.bleCode=#{configuration.bleCode}"
 
       # OA.Centralから接続設定を取得したことをお知らせします。
       # この設定情報を欲しがっているビューコントローラーは、このインスタンスから遠いところにいるので、通知を使って届けます。
       notificationCenter = NSNotificationCenter.defaultCenter
-      userInfo = {
-        'AppOACentralConfigurationDidGetNotificationUserInfo' => configuration
-      }
+      userInfo = { 'AppOACentralConfigurationDidGetNotificationUserInfo' => configuration }
       notificationCenter.postNotificationName(AppOACentralConfigurationDidGetNotification, object:self, userInfo:userInfo)
     end
 

@@ -14,15 +14,6 @@ environment_variables = Dotenv.load
 Motion::Project::App.setup do |app|
   # Use `rake config' to see complete project settings.
   app.name = 'OlyMotion'
-
-  app.vendor_project(
-    'vendor/OLYCameraKit.framework',
-    :static,
-    :products => %w(OLYCameraKit),
-    :headers_dir => 'Headers'
-    )
-  app.frameworks += %w(CoreBluetooth)
-
   app.identifier           = ENV['APP_IDENTIFIER']
   app.codesign_certificate = ENV['APP_CODESIGN_CERTIFICATE']
   app.provisioning_profile = ENV['APP_PROVISIONING_PROFILE']
@@ -46,4 +37,14 @@ Motion::Project::App.setup do |app|
     pod 'Reachability'
     pod 'MBProgressHUD'
   end
+
+  app.frameworks += %w(CoreBluetooth)
+  app.vendor_project(
+    'vendor/OLYCameraKit.framework',
+    :static,
+    :products => %w(OLYCameraKit),
+    :headers_dir => 'Headers'
+    )
+  app.bridgesupport_files << '/Users/hasumi/Library/RubyMotion/build/Users/hasumi/work/OlyMotion/vendor/OLYCameraKit.framework/OLYCameraKit.framework.bridgesupport'
+  # app.embedded_frameworks += ['/path/to/framework.framework'
 end

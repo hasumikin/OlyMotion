@@ -22,7 +22,7 @@
  * - The class to output error code and log is available for debugging your application.
  * - The following class is available to support a Bluetooth Smart connection
  *   - @ref OACentralConfiguration ... Receive setting information of Bluetooth Smart connection from Olympus official app, OA.Central.
- * 
+ *
  * @par How to use
  *
  * Establish Wi-Fi connection between camera and mobile device in setting screen of the mobile device.
@@ -31,7 +31,7 @@
  *
  * The camera has several run modes. Available functions are different in each mode.
  * The camera is set to standalone mode after the connection is established between camera and mobile device.
- * 
+ *
  * For recording movie or photograph:
  * Connect to the camera, change to recording mode, set drive and shooting modes,
  * call start capturing and then end capturing.
@@ -80,11 +80,11 @@
  * @~
  */
 /**
- * 
+ *
  * @file	OLYCamera.h
  * @brief	OLYCamera class interface file.
  *
- * 
+ *
  */
 /*
  * Copyright (c) Olympus Imaging Corporation. All rights reserved.
@@ -102,49 +102,49 @@
 #import "OLYCameraLog.h"
 
 /**
- * 
+ *
  * @defgroup types Types
  *
  * Type definition and enumerated types that are to be used by Olympus camera class
  *
- * 
+ *
  * @{
  */
 /** @} */
 
 /**
- * 
+ *
  * @defgroup constants Constants
  *
  * Constants referenced by Olympus camera class
  *
- * 
+ *
  * @{
  */
 /**
- * 
+ *
  * @name Olympus camera class: camera system category
  *
- * 
+ *
  * @{
  */
 
 /**
- * 
+ *
  * Version of Olympus camera kit.
  *
  * Check this value if the SDK behavior seems incorrect.
  * Problem may have been resolved in the latest version of the SDK.
  *
- * 
+ *
  */
 extern NSString *const OLYCameraKitVersion;
 
 /**
- * 
+ *
  * Build number of Olympus Camera Kit.
  *
- * 
+ *
  */
 extern NSString *const OLYCameraKitBuildNumber;
 
@@ -152,7 +152,7 @@ extern NSString *const OLYCameraKitBuildNumber;
 /** @} */
 
 /**
- * 
+ *
  *
  * Olympus camera class.
  *
@@ -193,7 +193,7 @@ extern NSString *const OLYCameraKitBuildNumber;
  *
  * Several functions are provided for the vendor. These are not available in third party applications.
  *
- * 
+ *
  */
 @interface OLYCamera : NSObject
 

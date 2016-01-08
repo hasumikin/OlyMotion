@@ -32,6 +32,7 @@
 -(IBAction) viewDidLoad;
 -(IBAction) viewDidAppear:(id) animated;
 -(IBAction) didChangeWifiStatus:(id) notification;
+-(IBAction) didChangeBluetoothConnection:(id) notification;
 -(IBAction) applicationDidBecomeActive:(id) notification;
 -(IBAction) applicationWillResignActive:(id) notification;
 -(IBAction) updateCameraConnectionCells;
@@ -44,8 +45,15 @@
 
 @end
 
-@interface AppCamera: NSObject
+@interface AppCamera: OLYCamera
 -(IBAction) initialize;
+
+@end
+
+@interface AppCameraLog: NSObject
+-(IBAction) initialize;
+-(IBAction) messages;
+-(IBAction) clearMessages;
 
 @end
 

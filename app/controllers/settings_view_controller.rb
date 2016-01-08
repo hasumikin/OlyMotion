@@ -1,10 +1,9 @@
 class SettingsViewController < UIViewController
 
   include UIViewControllerThreading
+  include DebugConcern
 
-  WifiConnectionChangedNotification = "WifiConnectionChangedNotification"
-
-  attr_accessor :bluetoothConnector, :wifiConnector
+  attr_accessor :bluetoothConnector, :wifiConnector, :showWifiSettingCell
 
   def viewDidLoad
     super
@@ -12,8 +11,9 @@ class SettingsViewController < UIViewController
     # ビューコントローラーの活動状態を初期化します。
     @startingActivity = false
 
-    @setting = AppSetting.instance
-    @camera = AppCamera.instance
+    appDelegate = UIApplication.sharedApplication.delegate
+    @camera = appDelegate.camera
+    @setting = appDelegate.setting
 
     @table = UITableView.alloc.initWithFrame(self.view.bounds)
     @table.autoresizingMask = UIViewAutoresizingFlexibleHeight
@@ -87,6 +87,7 @@ class SettingsViewController < UIViewController
     notificationCenter.addObserver(self, selector:'didChangeWifiStatus:', name:WifiConnector::WifiStatusChangedNotification, object:nil)
     # Bluetoothの接続状態を監視するインスタンス
     @bluetoothConnector = BluetoothConnector.new
+    notificationCenter.addObserver(self, selector:'didChangeBluetoothConnection:', name:BluetoothConnector::BluetoothConnectionChangedNotification, object:nil)
   end
 
   def viewDidAppear(animated)
@@ -96,7 +97,7 @@ class SettingsViewController < UIViewController
       # MARK: iOS9では初回の画面表示の際にapplicationDidBecomeActiveが呼び出されないのでここでフォローします。
       # todo: バージョン判定のRubymotion的書き方がわからないので常に実行。そのうち直す
       # if NSProcessInfo.processInfo.isOperatingSystemAtLeastVersion('9.0')
-      # puts "The application is running on iOS9!"
+      # dp "The application is running on iOS9!"
       applicationDidBecomeActive(nil)
       # end
       @startingActivity = true
@@ -110,7 +111,7 @@ class SettingsViewController < UIViewController
       weakSelf = WeakRef.new(self)
       # weakSelf.executeAsynchronousBlockOnMainThread -> {
       Dispatch::Queue.main.async {
-        puts "weakSelf=#{weakSelf}"
+        dp "weakSelf=#{weakSelf}"
         weakSelf.didChangeWifiStatus(notification)
       }
     else
@@ -122,6 +123,45 @@ class SettingsViewController < UIViewController
     end
   end
 
+  # Bluetooth接続の状態が変化した時に呼び出されます。
+  def didChangeBluetoothConnection(notification)
+    # メインスレッド以外から呼び出された場合は、メインスレッドに投げなおします。
+    unless NSThread.isMainThread
+      weakSelf = WeakRef.new(self)
+      # weakSelf.executeAsynchronousBlockOnMainThread:^{
+      Dispatch::Queue.main.async {
+        dp "weakSelf=#{weakSelf}"
+        weakSelf.didChangeBluetoothConnection(notification)
+      }
+      return
+    end
+
+    # MARK: カメラキットはBluetoothの切断を検知しないのでアプリが自主的にカメラとの接続を解除しなければならない。
+    if @camera.connected && @camera.connectionType == OLYCameraConnectionTypeBluetoothLE
+      bluetoothStatus = @bluetoothConnector.connectionStatus
+      if bluetoothStatus == 'BluetoothConnectionStatusNotFound' || bluetoothStatus == 'BluetoothConnectionStatusNotConnected'
+        # カメラとのアプリ接続を解除します。
+        error = Pointer.new(:object)
+        unless @camera.disconnectWithPowerOff(false, error:error)
+          # カメラのアプリ接続を解除できませんでした。
+          # エラーを無視して続行します。
+          dp "An error occurred, but ignores it."
+        end
+
+        # カメラとのBluetooth接続を解除します。
+        @camera.bluetoothPeripheral = nil
+        @camera.bluetoothPassword = nil
+      end
+    end
+
+    # 画面表示を更新します。
+    self.updateShowBluetoothSettingCell
+    self.updateCameraConnectionCells
+    # self.updateCameraOperationCells
+
+    # カメラ操作の子画面を表示している場合は、この画面に戻します。
+    # self.backToConnectionView(true)
+  end
 
   # アプリケーションがアクティブになる時に呼び出されます。
   def applicationDidBecomeActive(notification)
@@ -220,7 +260,7 @@ class SettingsViewController < UIViewController
         @wifiConnector.ssid ? @wifiConnector.ssid : "WifiConnected(null)"
       elsif cameraStatus == 'WifiCameraStatusUnreachable1'
         @wifiConnector.ssid ? "WifiNotConnected1(#{@wifiConnector.ssid})" : "WifiNotConnected1(null)"
-      elsif cameraStatus == 'WifiCameraStatusUnreachable12'
+      elsif cameraStatus == 'WifiCameraStatusUnreachable2'
         @wifiConnector.ssid ? "WifiNotConnected2(#{@wifiConnector.ssid})" : "WifiNotConnected2(null)"
       else
         "WifiStatusUnknown1" # Wi-Fi接続済みで接続先は確認中
@@ -243,7 +283,7 @@ class SettingsViewController < UIViewController
 
   def dealloc
     notificationCenter = NSNotificationCenter.defaultCenter
-    # notificationCenter.removeObserver(self, name: BluetoothConnectionChangedNotification, object:nil)
+    notificationCenter.removeObserver(self, name: BluetoothConnectionChangedNotification, object:nil)
 
     notificationCenter.removeObserver(self, name:'UIApplicationDidBecomeActiveNotification', object:nil)
     notificationCenter.removeObserver(self, name:'UIApplicationWillResignActiveNotification', object:nil)
@@ -351,9 +391,10 @@ class SettingsViewController < UIViewController
     weakSelf = WeakRef.new(self)
     weakSelf.bluetoothConnector.services = OLYCamera.bluetoothServices
     weakSelf.bluetoothConnector.localName = bluetoothLocalName
-    # App.alert '接続開始'
+    dp '接続開始'
     weakSelf.showProgressWhileExecutingBlock(true) do |progressView|
-      puts "weakSelf=#{weakSelf}"
+      dp "weakSelf=#{weakSelf}"
+      dp "demandToWakeUpWithUsingBluetooth=#{demandToWakeUpWithUsingBluetooth}"
 
       # カメラに電源投入を試みます。
       if demandToWakeUpWithUsingBluetooth
@@ -364,18 +405,18 @@ class SettingsViewController < UIViewController
             # カメラが見つかりませんでした。
             error = error_ptr[0]
             weakSelf.alertOnMainThreadWithMessage(error.localizedDescription, title: "CouldNotConnectWifi")
-            next #【注】 Obj-c版では`return`と書いているが、rubyではnextにするとよさげ
+            next #【注】 Obj-c版では`return`と書いているが、rubyではnext
           end
         end
 
         # カメラにBluetooth接続します。
         if weakSelf.bluetoothConnector.connectionStatus == 'BluetoothConnectionStatusNotConnected'
-          if !weakSelf.bluetoothConnector.connectPeripheral(error_ptr)
+          unless weakSelf.bluetoothConnector.connectPeripheral(error_ptr)
             # カメラにBluetooth接続できませんでした。
             error = error_ptr[0]
-            # App.alert 'CouldNotConnectWifi'
+            App.alert 'CouldNotConnectWifi'
             # [weakSelf alertOnMainThread:message: error.localizedDescription title:NSLocalizedString(@"$title:CouldNotConnectWifi", @"ConnectionViewController.didSelectRowAtConnectWithUsingWifiCell")]
-            return
+            next #【注】 Obj-c版では`return`と書いているが、rubyではnext
           end
         end
 
@@ -388,10 +429,10 @@ class SettingsViewController < UIViewController
         @camera.bluetoothPassword = bluetoothPasscode
         @camera.bluetoothPrepareForRecordingWhenPowerOn = true
         wokenUp = @camera.wakeup(error_ptr)
-        if !wokenUp
-          # カメラの電源を入れるのに失敗しました。
+        unless wokenUp
+          dp "カメラの電源を入れるのに失敗しました。"
           error = error_ptr[0]
-          if error.domain.isEqualToString(OLYCameraErrorDomain) && error.code == OLYCameraErrorOperationAborted
+          if error.domain == OLYCameraErrorDomain && error.code == OLYCameraErrorOperationAborted
             # MARK: カメラをUSB給電中に電源入れるとその後にWi-Fi接続できるようになるのにもかかわらずエラーが返ってくるようです。
             #     Error {
             #         Domain = OLYCameraErrorDomain
@@ -399,7 +440,7 @@ class SettingsViewController < UIViewController
             #         UserInfo = { NSLocalizedDescription=The camera did not respond in time. }
             #     }
             # エラーにすると使い勝手が悪いので、無視して続行します。
-            puts "An error occurred, but ignore it."
+            dp "An error occurred, but ignore it."
             wokenUp = true
           else
             # weakSelf.alertOnMainThreadWithMessage(error.localizedDescription, title:NSLocalizedString(@"$title:CouldNotConnectWifi", @"ConnectionViewController.didSelectRowAtConnectWithUsingWifiCell")]
@@ -410,19 +451,17 @@ class SettingsViewController < UIViewController
 
         # カメラとのBluetooth接続を解除します。
         # MARK: このタイミングで切断することによって、果たしてWi-FiとBluetoothの電波干渉を避けることができるか?
-        if !weakSelf.bluetoothConnector.disconnectPeripheral(error_ptr)
-          # カメラとのBluetooth接続解除に失敗しました。
-          # エラーを無視して続行します。
-          puts "An error occurred, but ignores it."
+        unless weakSelf.bluetoothConnector.disconnectPeripheral(error_ptr)
+          dp "カメラとのBluetooth接続解除に失敗しました。"
+          dp "エラーを無視して続行します。"
         end
         weakSelf.bluetoothConnector.peripheral = nil
 
-        # カメラの電源を入れるのに失敗している場合はここで諦めます。
-        return nil unless wokenUp
-
-        # カメラの電源を入れた後にカメラにアクセスできるWi-Fi接続が有効になるまで待ちます。
-        # MARK: カメラ本体のLEDはすぐに接続中(緑)になるが、iOS側のWi-Fi接続が有効になるまで、10秒とか20秒とか、思っていたよりも時間がかかります。
-        # 作者の環境ではiPhone 4Sだと10秒程度かかっています。
+        # # カメラの電源を入れるのに失敗している場合はここで諦めます。
+        next unless wokenUp #【注】 Obj-c版では`return`と書いているが、rubyではnext
+        # # カメラの電源を入れた後にカメラにアクセスできるWi-Fi接続が有効になるまで待ちます。
+        # # MARK: カメラ本体のLEDはすぐに接続中(緑)になるが、iOS側のWi-Fi接続が有効になるまで、10秒とか20秒とか、思っていたよりも時間がかかります。
+        # # 作者の環境ではiPhone 4Sだと10秒程度かかっています。
         weakSelf.reportBlockConnectingWifi(progressView)
         Dispatch::Queue.main.async {
           weakSelf.showWifiSettingCell.detailTextLabel.text = "ConnectingWifi"
@@ -435,60 +474,95 @@ class SettingsViewController < UIViewController
           # Wi-Fi接続が有効になりませんでした。
           if weakSelf.wifiConnector.connectionStatus != 'WifiConnectionStatusConnected'
             # カメラにアクセスできるWi-Fi接続は見つかりませんでした。
-            App.alert "CouldNotDiscoverWifiConnection"
+            weakSelf.alertOnMainThreadWithMessage("CouldNotDiscoverWifiConnection", title:"CouldNotConnectWifi")
           else
             # カメラにアクセスできるWi-Fi接続ではありませんでした。(すでに別のアクセスポイントに接続している)
-            App.alert "WifiConnectionIsNotCamera"
+            weakSelf.alertOnMainThreadWithMessage("WifiConnectionIsNotCamera", title:"CouldNotConnectWifi")
           end
-          return
+           next #【注】 Obj-c版では`return`と書いているが、rubyではnext
         end
 
-        # 電源投入が完了しました。
+        # # 電源投入が完了しました。
         progressView.mode = MBProgressHUDModeIndeterminate
-        puts "To wake the camera up is success."
+        dp "To wake the camera up is success."
       end
 
-    #   # カメラにアプリ接続します。
-    #   error_ptr = Pointer.new(:object)
-    #   unless @camera.connect(OLYCameraConnectionTypeWiFi, error:error_ptr)
-    #     # カメラにアプリ接続できませんでした。
-    #     error = error_ptr[0]
-    #     # [weakSelf alertOnMainThread:message: error.localizedDescription title:NSLocalizedString(@"$title:CouldNotConnectWifi", @"ConnectionViewController.didSelectRowAtConnectWithUsingWifiCell")]
-    #     return
-    #   end
+      dp "カメラにアプリ接続します。"
+      error_ptr = Pointer.new(:object)
+      unless @camera.connect(OLYCameraConnectionTypeWiFi, error:error_ptr)
+        dp "カメラにアプリ接続できませんでした。"
+        error = error_ptr[0]
+        weakSelf.alertOnMainThreadWithMessage(error.localizedDescription, title:"CouldNotConnectWifi")
+        next #【注】 Obj-c版では`return`と書いているが、rubyではnext
+      end
 
-    #   # スマホの現在時刻をカメラに設定します。
-    #   # MARK: 保守モードでは受け付けないのでこのタイミングしかありません。
-    #   unless @camera.changeTime(Time.now, error:error_ptr)
-    #     # 時刻が設定できませんでした。
-    #     error = error_ptr[0]
-    #     # [weakSelf alertOnMainThread:message: error.localizedDescription title:NSLocalizedString(@"$title:CouldNotConnectWifi", @"ConnectionViewController.didSelectRowAtConnectWithUsingWifiCell")]
-    #     return
-    #   end
+      dp "スマホの現在時刻をカメラに設定します。"
+      # MARK: 保守モードでは受け付けないのでこのタイミングしかありません。
+      unless @camera.changeTime(Time.now, error:error_ptr)
+        dp "時刻が設定できませんでした。"
+        error = error_ptr[0]
+        weakSelf.alertOnMainThreadWithMessage(error.localizedDescription, title:"CouldNotConnectWifi")
+        next #【注】 Obj-c版では`return`と書いているが、rubyではnext
+      end
 
-    #   # MARK: 実行モードがスタンドアロンモードのまま放置するとカメラの自動スリープが働いてしまってスタンドアロンモード以外へ変更できなくなってしまうようです。
-    #   # カメラの自動スリープを防止するため、あらかじめ実行モードをスタンドアロンモード以外に変更しておきます。(取り敢えず保守モードへ)
-    #   unless @camera.changeRunMode(OLYCameraRunModeMaintenance, error:error_ptr)
-    #     # 実行モードを変更できませんでした。
-    #     error = error_ptr[0]
-    #     # [weakSelf alertOnMainThread:message: error.localizedDescription title:NSLocalizedString(@"$title:CouldNotConnectWifi", @"ConnectionViewController.didSelectRowAtConnectWithUsingWifiCell")]
-    #     return
-    #   end
+      # MARK: 実行モードがスタンドアロンモードのまま放置するとカメラの自動スリープが働いてしまってスタンドアロンモード以外へ変更できなくなってしまうようです。
+      dp "カメラの自動スリープを防止するため、あらかじめ実行モードをスタンドアロンモード以外に変更しておきます。(取り敢えず保守モードへ)"
+      unless @camera.changeRunMode(OLYCameraRunModeMaintenance, error:error_ptr)
+        dp "実行モードを変更できませんでした。"
+        error = error_ptr[0]
+        weakSelf.alertOnMainThreadWithMessage(error.localizedDescription, title:"CouldNotConnectWifi")
+        next #【注】 Obj-c版では`return`と書いているが、rubyではnext
+      end
 
-    #   # 画面表示を更新します。
-    #   Dispatch::Queue.main.async {
-    #     weakSelf.updateShowWifiSettingCell
-    #     weakSelf.updateShowBluetoothSettingCell
-    #     weakSelf.updateCameraConnectionCells
-    #     # weakSelf.updateCameraOperationCells
-    #     # weakSelf.tableView.scrollToRowAtIndexPath(weakSelf.visibleWhenConnected, atScrollPosition:UITableViewScrollPositionMiddle, animated:true)
-    #   }
+      dp "画面表示を更新します。"
+      Dispatch::Queue.main.async {
+        weakSelf.updateShowWifiSettingCell
+        weakSelf.updateShowBluetoothSettingCell
+        weakSelf.updateCameraConnectionCells
+        dp "weakSelf.updateCameraOperationCells"
+        dp "weakSelf.tableView.scrollToRowAtIndexPath(weakSelf.visibleWhenConnected, atScrollPosition:UITableViewScrollPositionMiddle, animated:true)"
+      }
 
-    #   # アプリ接続が完了しました。
-    #   weakSelf.reportBlockFinishedToProgress(progressView)
-    #   puts ""
+      dp "アプリ接続が完了しました。"
+      weakSelf.reportBlockFinishedToProgress(progressView)
+      dp "接続完了"
     end
   end
+
+  # 進捗画面に処理完了を報告します。
+  def reportBlockFinishedToProgress(progress)
+    Dispatch::Queue.main.sync {
+      image = UIImage.imageNamed("Progress-Checkmark")
+      progressImageView = UIImageView.alloc.initWithImage(image)
+      progressImageView.tintColor = UIColor.whiteColor
+      progress.customView = progressImageView
+      progress.mode = MBProgressHUDModeCustomView
+      sleep(0.5)
+    }
+  end
+
+  # 進捗画面にWi-Fi接続中を報告します。
+  def reportBlockConnectingWifi(progress)
+    Dispatch::Queue.main.sync {
+      images = [
+        UIImage.imageNamed("Progress-Wifi-25"),
+        UIImage.imageNamed("Progress-Wifi-50"),
+        UIImage.imageNamed("Progress-Wifi-75"),
+        UIImage.imageNamed("Progress-Wifi-100")
+      ]
+      progressImageView = UIImageViewAnimation.alloc.initWithImage(images[0])
+      progressImageView.tintColor = UIColor.whiteColor
+      progressImageView.setAnimationTemplateImages(images)
+      progressImageView.animationDuration = 1.0
+      progressImageView.alpha = 0.75
+
+      progress.customView = progressImageView
+      progress.mode = MBProgressHUDModeCustomView
+
+      progressImageView.startAnimating
+    }
+  end
+
 
   # 進捗画面に電源投入中を報告します。
   # 【重要】サイズ的ユニバーサル画像リソースのためにgem 'ib'をつかっています
@@ -509,7 +583,6 @@ class SettingsViewController < UIViewController
         UIImage.imageNamed("Progress-Power-70"),
         UIImage.imageNamed("Progress-Power-40")
       ]
-      # UIImageViewAnimation.progressImageView
       progressImageView = UIImageViewAnimation.alloc.initWithImage(images[0])
       progressImageView.tintColor = UIColor.whiteColor
       progressImageView.setAnimationTemplateImages(images)
@@ -525,7 +598,7 @@ class SettingsViewController < UIViewController
 
   def alertOnMainThreadWithMessage(message, title:title)
     Dispatch::Queue.main.async {
-      App.alert(title, message:message)
+      App.alert(title, message: message)
     }
   end
 

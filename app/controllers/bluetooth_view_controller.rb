@@ -1,9 +1,14 @@
 class BluetoothViewController < UIViewController
 
+  include DebugConcern
+
   def viewDidLoad
     super
 
-    @setting = AppSetting.instance
+    appDelegate = UIApplication.sharedApplication.delegate
+    @setting = appDelegate.setting
+    @bluetoothLocalName = nil
+    @bluetoothPasscode = nil
 
     self.title = 'Bluetooth'
     self.view.backgroundColor = UIColor.blueColor
@@ -20,8 +25,8 @@ class BluetoothViewController < UIViewController
     Motion::Layout.new do |layout|
       layout.view self.view
       layout.subviews table: @table
-      layout.vertical "|[table]|"
-      layout.horizontal "|[table]|"
+      layout.vertical "[table]"
+      layout.horizontal "[table]"
     end
 
     @table_data = [
@@ -44,9 +49,11 @@ class BluetoothViewController < UIViewController
   end
 
   def didGetAppOACentralConfiguration(notification)
-    puts "notification=#{notification}"
+    dp "notification=#{notification}"
     # OA.Centralから取得した接続設定を現在のBluetooth接続の設定値に入力
     configuration = notification.userInfo[AppDelegate::AppOACentralConfigurationDidGetNotificationUserInfo]
+    @bluetoothLocalName = configuration.bleName
+    @bluetoothPasscode = configuration.bleCode
     @table_data[0][:rows][0][:detail] = configuration.bleName
     @table_data[0][:rows][1][:detail] = convert_secure(configuration.bleCode)
     @table.reloadData
@@ -64,8 +71,8 @@ class BluetoothViewController < UIViewController
   # Doneが押された
   def close
     # NSUserDefaultsに設定を保存
-    @setting['bluetoothLocalName'] = @table_data[0][:rows][0][:detail]
-    @setting['bluetoothPasscode']  = @table_data[0][:rows][1][:detail]
+    @setting['bluetoothLocalName'] = @bluetoothLocalName
+    @setting['bluetoothPasscode']  = @bluetoothPasscode
     self.navigationController.popViewControllerAnimated(true)
   end
 
@@ -113,7 +120,7 @@ class BluetoothViewController < UIViewController
   def getFromOacentral
     # キーボード閉じる
     self.view.endEditing(true)
-    
+
     # OA.Centralに設定情報を要求
     unless OACentralConfiguration.requestConfigurationURL(AppDelegate::AppUrlSchemeGetFromOacentral)
       # OA.Centralの呼び出しに失敗

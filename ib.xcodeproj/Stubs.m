@@ -18,6 +18,9 @@
 @implementation AppCamera
 @end
 
+@implementation AppCameraLog
+@end
+
 @implementation AppSetting
 @end
 

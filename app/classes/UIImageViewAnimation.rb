@@ -1,7 +1,9 @@
 class UIImageViewAnimation < UIImageView
 
+  include DebugConcern
+
   def setAnimationTemplateImages(images)
-    puts "images=%#{images}"
+    dp "images=%#{images}"
 
     templateImages = NSMutableArray.alloc.initWithCapacity(images.count)
     images.each do |image|
@@ -10,7 +12,7 @@ class UIImageViewAnimation < UIImageView
       context = UIGraphicsGetCurrentContext()
       CGContextTranslateCTM(context, 0, image.size.height)
       CGContextScaleCTM(context, 1.0, -1.0)
-      CGContextSetBlendMode(context, KCGBlendModeNormal) # kCGBlendModeNormal
+      CGContextSetBlendMode(context, KCGBlendModeNormal) # kCGBlendModeNormalの先頭のkを大文字に。Rubymotionあるある？
       rect = CGRectMake(0, 0, image.size.width, image.size.height)
       CGContextClipToMask(context, rect, image.CGImage)
       self.tintColor.setFill

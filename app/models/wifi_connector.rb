@@ -1,5 +1,7 @@
 class WifiConnector
 
+  include DebugConcern
+
   WifiStatusChangedNotification = 'WifiStatusChangedNotification'
 
   attr_accessor :ssid, :bssid, :monitoring, :reachability, :networkStatus, :cameraResponded
@@ -50,7 +52,7 @@ class WifiConnector
   def startMonitoring
     if @monitoring
       # 監視はすでに実行中です。
-      puts "MonitoringIsRunnning" + "WifiConnector.startMonitoring"
+      dp "MonitoringIsRunnning" + "WifiConnector.startMonitoring"
       return
     end
 
@@ -62,7 +64,7 @@ class WifiConnector
       Dispatch::Queue.main.async {
         unless weakSelf.reachability.startNotifier
           # Reachabilityの通知開始に失敗しました。
-          puts "CouldNotStartMonitoring" + "WifiConnector.startMonitoring"
+          dp "CouldNotStartMonitoring" + "WifiConnector.startMonitoring"
           return
         end
       }
@@ -73,10 +75,10 @@ class WifiConnector
   def stopMonitoring
     unless @monitoring
       # 監視は未実行です。
-      puts "MonitoringIsNotRunnning" + "WifiConnector.stopMonitoring"
+      dp "MonitoringIsNotRunnning" + "WifiConnector.stopMonitoring"
       return
     end
-    
+
     weakSelf = WeakRef.new(self)
     Dispatch::Queue.concurrent.async {
       # 監視を停止します。
@@ -89,7 +91,7 @@ class WifiConnector
   end
 
   def waitForConnected(timeout)
-    puts "timeout=#{timeout}"
+    dp "timeout=#{timeout}"
 
     # 監視を一時的に停止します。
     if @monitoring
@@ -122,12 +124,12 @@ class WifiConnector
         }
       }
     end
-    
+
     connected
   end
 
   def waitForDisconnected(timeout)
-    puts "timeout=#{timeout}"
+    dp "timeout=#{timeout}"
 
     # 監視を一時的に停止します。
     if @monitoring
@@ -138,7 +140,7 @@ class WifiConnector
         }
       }
     end
-  
+
     # 接続状態の変化をポーリングします。
     disconnected = false
     waitStartTime = Time.now
@@ -152,7 +154,7 @@ class WifiConnector
       end
       sleep(0.05)
     end
-  
+
     # 監視を再開します。
     if @monitoring
       weakSelf = WeakRef.new(self)
@@ -192,7 +194,7 @@ class WifiConnector
     else
       # ここにはこないはず...
     end
-    
+
     # 状態に変化があった時にだけ通知します。
     if @networkStatus != previousNetworkStatus || @cameraResponded != previousCameraResponded
       Dispatch::Queue.main.async {
@@ -225,19 +227,18 @@ class WifiConnector
     # 通信仕様書に沿った期待したレスポンスが返って来れば、このWi-Fiはカメラに接続していると判定します。
     cameraIPAddress = "192.168.0.10" # カメラのIPアドレス
     timeout = 3.0; # このタイムアウト秒数は暫定の値です。(値が短すぎると誤判断する)
-    
-    # カメラのIPアドレスへのルーティングがあるかを確認します。
+
+    dp "カメラのIPアドレスへのルーティングがあるかを確認します。"
     reachability = Reachability.reachabilityWithHostName(cameraIPAddress)
     waitStartTime = Time.now
     while (reachability.currentReachabilityStatus == NotReachable && Time.now - waitStartTime < timeout)
       sleep(0.05)
     end
     if reachability.currentReachabilityStatus != ReachableViaWiFi
-      puts "timed out"
+      dp "timed out"
       return false
     end
 
-    cameraIPAddress = "192.168.0.10"
     client = AFMotion::Client.build("http://#{cameraIPAddress}/") do
       header "Accept",     "text/xml"
       header "User-Agent", "OlympusCameraKit"

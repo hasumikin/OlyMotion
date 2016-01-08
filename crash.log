@@ -1,0 +1,103 @@
+Process:               OlyMotion [3255]
+Path:                  /Users/USER/Library/Developer/CoreSimulator/Devices/1DFD00B5-7629-47E5-AF80-5ADFF31E03BA/data/Containers/Bundle/Application/A14DD723-B2BC-43BD-BF2D-F971E7FE4351/OlyMotion.app/OlyMotion
+Identifier:            OlyMotion
+Version:               1.0 (1.0)
+Code Type:             X86-64 (Native)
+Parent Process:        launchd_sim [3188]
+Responsible:           launchd_sim [3188]
+User ID:               501
+
+Date/Time:             2016-01-06 22:16:32.337 +0900
+OS Version:            Mac OS X 10.10.5 (14F1509)
+Report Version:        11
+Anonymous UUID:        EF5EF28D-7DFD-A5C5-12F0-CC6C09363B58
+
+Sleep/Wake UUID:       27ADF381-4F26-4CEF-8B7B-7658F1F79CDF
+
+Time Awake Since Boot: 260000 seconds
+Time Since Wake:       1600 seconds
+
+Crashed Thread:        4  Dispatch queue: com.apple.root.default-qos
+
+Exception Type:        EXC_CRASH (SIGABRT)
+Exception Codes:       0x0000000000000000, 0x0000000000000000
+
+Application Specific Information:
+abort() called
+CoreSimulator 191.4 - Device: iPhone 6 - Runtime: iOS 9.1 (13B137) - DeviceType: iPhone 6
+
+  Thread 0:
+  0   CoreGraphics                    0x0000000182949670 0x182924000 + 153200
+  1   CoreGraphics                    0x0000000182928ab8 0x182924000 + 19128
+  2   CoreGraphics                    0x0000000182928ab8 0x182924000 + 19128
+  3   libRIP.A.dylib                  0x00000001930f1510 0x1930ec000 + 21776
+  4   libRIP.A.dylib                  0x00000001930f00ac 0x1930ec000 + 16556
+  5   libRIP.A.dylib                  0x00000001930ff044 0x1930ec000 + 77892
+  6   CoreGraphics                    0x000000018296115c 0x182924000 + 250204
+  7   OlyMotion                       0x000000010002b5c4 0x100000000 + 177604
+  8   UIKit                           0x0000000186429364 0x18638c000 + 643940
+  9   QuartzCore                      0x0000000183dd96e4 0x183d9c000 + 251620
+  10  QuartzCore                      0x0000000183dc4784 0x183d9c000 + 165764
+  11  QuartzCore                      0x0000000183dc39a4 0x183d9c000 + 162212
+  12  QuartzCore                      0x0000000183da5918 0x183d9c000 + 39192
+  13  QuartzCore                      0x0000000183da5604 0x183d9c000 + 38404
+  14  QuartzCore                      0x0000000183da4c94 0x183d9c000 + 35988
+  15  QuartzCore                      0x0000000183da49dc 0x183d9c000 + 35292
+  16  QuartzCore                      0x0000000183d9e0cc 0x183d9c000 + 8396
+  17  CoreFoundation                  0x0000000181664588 0x181588000 + 902536
+  18  CoreFoundation                  0x000000018166232c 0x181588000 + 893740
+  19  CoreFoundation                  0x000000018166275c 0x181588000 + 894812
+  20  CoreFoundation                  0x0000000181591680 0x181588000 + 38528
+  21  GraphicsServices                0x0000000182aa0088 0x182a94000 + 49288
+  22  UIKit                           0x0000000186408d90 0x18638c000 + 511376
+  23  OlyMotion                       0x0000000100105f94 0x100000000 + 1073044
+  24  libdyld.dylib                   0x00000001811328b8 0x181130000 + 10424
+Jan  6 23:31:28 iPhone6-hasumi ReportCrash[4424] <Error>: Thread 1:
+  0   libsystem_kernel.dylib          0x0000000181250b6c 0x181234000 + 117612
+  1   libsystem_pthread.dylib         0x0000000181315530 0x181314000 + 5424
+  2   libsystem_pthread.dylib         0x0000000181315020 0x181314000 + 4128
+Jan  6 23:31:28 iPhone6-hasumi ReportCrash[4424] <Error>: Thread 2 name:  Dispatch queue: com.apple.libdispatch-manager
+  Thread 2:
+  0   libsystem_kernel.dylib          0x00000001812514fc 0x181234000 + 120060
+  1   libdispatch.dylib               0x000000018111494c 0x181100000 + 84300
+  2   libdispatch.dylib               0x00000001811037bc 0x181100000 + 14268
+Jan  6 23:31:28 iPhone6-hasumi ReportCrash[4424] <Error>: Thread 3:
+  0   libsystem_kernel.dylib          0x0000000181250b6c 0x181234000 + 117612
+  1   libsystem_pthread.dylib         0x0000000181315530 0x181314000 + 5424
+  2   libsystem_pthread.dylib         0x0000000181315020 0x181314000 + 4128
+Jan  6 23:31:28 iPhone6-hasumi ReportCrash[4424] <Error>: Thread 4 name:  Dispatch queue: com.apple.root.default-qos
+  Thread 4 Crashed:
+  0   libsystem_kernel.dylib          0x0000000181250140 0x181234000 + 115008
+  1   libsystem_pthread.dylib         0x0000000181318ef8 0x181314000 + 20216
+  2   libsystem_c.dylib               0x00000001811c1dac 0x181160000 + 400812
+  3   OlyMotion                       0x00000001004de240 0x100000000 + 5104192
+  4   OlyMotion                       0x00000001004dc768 0x100000000 + 5097320
+  5   OlyMotion                       0x00000001003c4048 0x100000000 + 3948616
+  6   OlyMotion                       0x00000001003cfa44 0x100000000 + 3996228
+  7   OlyMotion                       0x00000001004dec80 0x100000000 + 5106816
+  8   OlyMotion                       0x00000001004dd3f8 0x100000000 + 5100536
+  9   OlyMotion                       0x00000001003bfa88 0x100000000 + 3930760
+  10  OlyMotion                       0x00000001003c28e0 0x100000000 + 3942624
+  11  OlyMotion                       0x00000001004dec80 0x100000000 + 5106816
+  12  OlyMotion                       0x000000010018f708 0x100000000 + 1636104
+  13  OlyMotion                       0x000000010002a360 0x100000000 + 172896
+  14  libdispatch.dylib               0x0000000181101630 0x181100000 + 5680
+  15  libdispatch.dylib               0x00000001811015f0 0x181100000 + 5616
+  16  libdispatch.dylib               0x000000018110fa88 0x181100000 + 64136
+  17  libdispatch.dylib               0x000000018110f224 0x181100000 + 61988
+  18  libsystem_pthread.dylib         0x0000000181315470 0x181314000 + 5232
+  19  libsystem_pthread.dylib         0x0000000181315020 0x181314000 + 4128
+4424] <Error>: Thread 5:
+  0   libsystem_kernel.dylib          0x0000000181250b6c 0x181234000 + 117612
+  1   libsystem_pthread.dylib         0x0000000181315530 0x181314000 + 5424
+  2   libsystem_pthread.dylib         0x0000000181315020 0x181314000 + 4128
+<Error>: Thread 4 crashed with ARM Thread State (64-bit):
+      x0: 0x0000000000000000   x1: 0x0000000000000000   x2: 0x0000000000000000   x3: 0x000000016e1b62a2
+      x4: 0x0000000100567c45   x5: 0x0000000000000006   x6: 0x0000000000000040   x7: 0x0000000000000000
+      x8: 0x000000000c000000   x9: 0x0000000004000000  x10: 0x0000000000003c57  x11: 0x00000001a12b0661
+     x12: 0x00000001a12b0661  x13: 0x0000000000000018  x14: 0x000000008000001f  x15: 0x0000000080000023
+     x16: 0x0000000000000148  x17: 0x00000001005a4570  x18: 0x0000000000000000  x19: 0x0000000000000006
+     x20: 0x000000016e1bb000  x21: 0x0000000000000001  x22: 0x0000000000000000  x23: 0x0000000100b02b70
+     x24: 0x3500a6d510b46190  x25: 0x00000001000fe290  x26: 0x3500a6d510b46190  x27: 0x0000000103ce8ff0
+     x28: 0x00000001005eaf68  fp: 0x000000016e1b6790   lr: 0x0000000181318ef8
+      sp: 0x000000016e1b6770   pc: 0x0000000181250140 cpsr: 0x00000000
