@@ -3,7 +3,7 @@ class SettingsViewController < UIViewController
   include UIViewControllerThreading
   include DebugConcern
 
-  attr_accessor :bluetoothConnector, :wifiConnector, :showWifiSettingCell
+  attr_accessor :bluetoothConnector, :wifiConnector, :showWifiSettingCell, :table
 
   def viewDidLoad
     super
@@ -353,6 +353,10 @@ class SettingsViewController < UIViewController
       didSelectRowAtConnectWithUsingBluetoothCell
     when :@connectWithUsingWifiCell
       didSelectRowAtConnectWithUsingWifiCell
+    when :@disconnectCell
+      didSelectRowAtDisconnectCell
+    when :@disconnectAndSleepCell
+      didSelectRowAtDisconnectAndSleepCell
     end
   end
 
@@ -543,7 +547,7 @@ class SettingsViewController < UIViewController
         weakSelf.updateShowBluetoothSettingCell
         weakSelf.updateCameraConnectionCells
         dp "weakSelf.updateCameraOperationCells"
-        dp "weakSelf.tableView.scrollToRowAtIndexPath(weakSelf.visibleWhenConnected, atScrollPosition:UITableViewScrollPositionMiddle, animated:true)"
+        dp "weakSelf.table.scrollToRowAtIndexPath(weakSelf.visibleWhenConnected, atScrollPosition:UITableViewScrollPositionMiddle, animated:true)"
       }
 
       dp "アプリ接続が完了しました。"
@@ -551,6 +555,117 @@ class SettingsViewController < UIViewController
       dp "接続完了"
     end
   end
+
+  # 'Disconnect'のセルが選択されたときに呼び出されます。
+  def didSelectRowAtDisconnectCell
+    dp "カメラの接続解除を開始します。"
+    weakSelf = WeakRef.new(self)
+    weakSelf.showProgressWhileExecutingBlock(true) do |progressView|
+      dp "weakSelf=#{weakSelf}"
+
+      dp "画面表示を更新します。"
+      # Dispatch::Queue.main.async {
+      #   weakSelf.table.scrollToRowAtIndexPath(weakSelf.visibleWhenDisconnected, atScrollPosition:UITableViewScrollPositionMiddle, animated:true)
+      # }
+
+      dp "カメラとのアプリ接続を解除します。"
+      lastConnectionType = @camera.connectionType
+      error = Pointer.new(:object)
+      unless @camera.disconnectWithPowerOff(false, error:error)
+        dp "カメラのアプリ接続を解除できませんでした。"
+        dp "エラーを無視して続行します。"
+        dp "An error occurred, but ignores it."
+      end
+      @camera.bluetoothPeripheral = nil
+      @camera.bluetoothPassword = nil
+
+      dp "カメラとのBluetooth接続を解除します。"
+      if lastConnectionType == OLYCameraConnectionTypeBluetoothLE
+        unless weakSelf.bluetoothConnector.disconnectPeripheral(error)
+          dp "カメラのBluetooth接続を解除できませんでした。"
+          dp "エラーを無視して続行します。"
+          dp "An error occurred, but ignores it."
+        end
+        weakSelf.bluetoothConnector.peripheral = nil
+      end
+
+      dp "画面表示を更新します。"
+      Dispatch::Queue.main.async {
+        weakSelf.updateShowBluetoothSettingCell
+        weakSelf.updateShowWifiSettingCell
+        weakSelf.updateCameraConnectionCells
+        # weakSelf.updateCameraOperationCells
+      }
+
+      dp "カメラの接続解除が完了しました。"
+      weakSelf.reportBlockFinishedToProgress(progressView)
+      dp ""
+    end
+  end
+
+  # /// 'Disconnect and Sleep'のセルが選択されたときに呼び出されます。
+  # - (void)didSelectRowAtDisconnectAndSleepCell {
+  #   DEBUG_LOG(@"");
+
+  #   // カメラの接続解除を開始します。
+  #   __weak ConnectionViewController *weakSelf = self;
+  #   [weakSelf showProgress:YES whileExecutingBlock:^(MBProgressHUD *progressView) {
+  #     DEBUG_LOG(@"weakSelf=%p", weakSelf);
+
+  #     // 画面表示を更新します。
+  #     [weakSelf executeAsynchronousBlockOnMainThread:^{
+  #       [weakSelf.table scrollToRowAtIndexPath:weakSelf.visibleWhenSleeped atScrollPosition:UITableViewScrollPositionMiddle animated:YES];
+  #     }];
+
+  #     // カメラとのアプリ接続を解除し電源を切ります。
+  #     AppCamera *camera = GetAppCamera();
+  #     OLYCameraConnectionType lastConnectionType = camera.connectionType;
+  #     NSError *error = nil;
+  #     if (![camera disconnectWithPowerOff:YES error:&error]) {
+  #       // カメラのアプリ接続を解除できませんでした。
+  #       // エラーを無視して続行します。
+  #       DEBUG_LOG(@"An error occurred, but ignores it.");
+  #     }
+  #     camera.bluetoothPeripheral = nil;
+  #     camera.bluetoothPassword = nil;
+
+  #     // カメラとのBluetooth接続を解除します。
+  #     if (lastConnectionType == OLYCameraConnectionTypeBluetoothLE) {
+  #       if (![weakSelf.bluetoothConnector disconnectPeripheral:&error]) {
+  #         // カメラのBluetooth接続を解除できませんでした。
+  #         // エラーを無視して続行します。
+  #         DEBUG_LOG(@"An error occurred, but ignores it.");
+  #       }
+  #       // カメラとのBluetooth接続を解除します。
+  #       weakSelf.bluetoothConnector.peripheral = nil;
+  #     }
+
+  #     // カメラの電源を切った後にWi-Fi接続が無効(もしくは他SSIDへ再接続)になるまで待ちます。
+  #     if (lastConnectionType == OLYCameraConnectionTypeWiFi) {
+  #       // MARK: カメラ本体のLEDはすぐに消灯するが、iOS側のWi-Fi接続が無効になるまで、10秒とか20秒とか、思っていたよりも時間がかかります。
+  #       // 作者の環境ではiPhone 4Sだと10秒程度かかっています。
+  #       [weakSelf reportBlockDisconnectingWifi:progressView];
+  #       [weakSelf executeAsynchronousBlockOnMainThread:^{
+  #         weakSelf.showWifiSettingCell.detailTextLabel.text = NSLocalizedString(@"$desc:DisconnectingWifi", @"ConnectionViewController.didSelectRowAtDisconnectAndSleepCell");
+  #       }];
+  #       if ([weakSelf.wifiConnector waitForDisconnected:20.0]) {
+  #         // エラーを無視して続行します。
+  #         DEBUG_LOG(@"An error occurred, but ignores it.");
+  #       }
+  #     }
+
+  #     // 画面表示を更新します。
+  #     [weakSelf executeAsynchronousBlockOnMainThread:^{
+  #       [weakSelf updateShowBluetoothSettingCell];
+  #       [weakSelf updateShowWifiSettingCell];
+  #       [weakSelf updateCameraConnectionCells];
+  #       [weakSelf updateCameraOperationCells];
+  #     }];
+
+  #     // カメラの接続解除が完了しました。
+  #     [weakSelf reportBlockFinishedToProgress:progressView];
+  #   }];
+  # }
 
   def openWifiConfig
     url = NSURL.URLWithString("prefs:root=WIFI")
