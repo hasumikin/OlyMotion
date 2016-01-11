@@ -11,8 +11,7 @@ class AppDelegate
   def application(application, didFinishLaunchingWithOptions:launchOptions)
     @setting = AppSetting.instance
     @calmeraLog = AppCameraLog.instance
-    @camera = AppCamera.new
-    # @camera.setConnectionDelegate(self)
+    @camera = AppCamera.instance
 
     rootViewController = SettingsViewController.alloc.init
     rootViewController.title = 'OlyMotion'

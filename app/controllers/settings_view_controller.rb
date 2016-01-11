@@ -11,9 +11,23 @@ class SettingsViewController < UIViewController
     # ビューコントローラーの活動状態を初期化します。
     @startingActivity = false
 
+    # 現在位置利用の権限確認を準備します。
+    @locationManager = CLLocationManager.new
+    @locationManager.delegate = self
+
+    # アプリケーションの実行状態を監視開始します。
+    notificationCenter = NSNotificationCenter.defaultCenter
+    notificationCenter.addObserver(self, selector:'applicationDidBecomeActive:', name:'UIApplicationDidBecomeActiveNotification', object:nil)
+    notificationCenter.addObserver(self, selector:'applicationWillResignActive:', name:'UIApplicationWillResignActiveNotification', object:nil)
+    notificationCenter.addObserver(self, selector:'applicationDidEnterBackground:', name:'UIApplicationDidEnterBackgroundNotification', object:nil)
+    notificationCenter.addObserver(self, selector:'applicationWillEnterForeground:', name:'UIApplicationWillEnterForegroundNotification', object:nil)
+
+    # アプリケーション設定の変更を監視準備します。
+    notificationCenter.addObserver(self, selector:'didChangedAppSetting:', name:'AppSettingChangedNotification', object:nil)
+
     appDelegate = UIApplication.sharedApplication.delegate
-    @camera = appDelegate.camera
-    @setting = appDelegate.setting
+    @camera = AppCamera.instance#appDelegate.camera#
+    @setting = AppSetting.instance#appDelegate.setting
 
     @table = UITableView.alloc.initWithFrame(self.view.bounds)
     @table.autoresizingMask = UIViewAutoresizingFlexibleHeight
@@ -45,7 +59,7 @@ class SettingsViewController < UIViewController
           },
           { label: 'Connect with Wi-Fi',
             detail: '',
-            accessory_type: UITableViewCellAccessoryNone,
+            accessory_type: UITableViewCellAccessoryDisclosureIndicator,
             outlet: :@connectWithUsingWifiCell
           },
           { label: 'Disconnect',
@@ -69,12 +83,6 @@ class SettingsViewController < UIViewController
       layout.horizontal "|[table]|"
     end
 
-    notificationCenter = NSNotificationCenter.defaultCenter
-    notificationCenter.addObserver(self, selector:'applicationDidBecomeActive:', name:'UIApplicationDidBecomeActiveNotification', object:nil)
-    notificationCenter.addObserver(self, selector:'applicationWillResignActive:', name:'UIApplicationWillResignActiveNotification', object:nil)
-    # notificationCenter.addObserver(self, selector:'applicationDidEnterBackground:', name:'UIApplicationDidEnterBackgroundNotification', object:nil)
-    # notificationCenter.addObserver(self, selector:'applicationWillEnterForeground:', name:'UIApplicationWillEnterForegroundNotification', object:nil)
-
     # Wi-Fiの接続状態を監視するインスタンス
     @wifiConnector = WifiConnector.new
     notificationCenter.addObserver(self, selector:'didChangeWifiStatus:', name:WifiConnector::WifiStatusChangedNotification, object:nil)
@@ -95,6 +103,110 @@ class SettingsViewController < UIViewController
       # end
       @startingActivity = true
     end
+  end
+
+  # アプリケーションがアクティブになる時に呼び出されます。
+  def applicationDidBecomeActive(notification)
+    # 写真アルバム利用の権限があるか確認します。
+    case ALAssetsLibrary.authorizationStatus
+    when ALAuthorizationStatusNotDetermined
+      dp "Using assets library isn't determind."
+      assetsLibraryRequestWhenInUseAuthorization
+    when ALAuthorizationStatusAuthorized
+      dp "Using assets library is already authorized."
+    when ALAuthorizationStatusDenied
+    when ALAuthorizationStatusRestricted
+      dp "Using assets library is restricted."
+    end
+
+    # 現在位置利用の権限があるかを確認します。
+    case CLLocationManager.authorizationStatus
+    when KCLAuthorizationStatusNotDetermined # 最初のkを大文字にするRM
+      dp "Using location service isn't determind."
+      @locationManager.requestWhenInUseAuthorization
+    when KCLAuthorizationStatusAuthorizedAlways
+    when KCLAuthorizationStatusAuthorizedWhenInUse
+      dp "Using location service is already authorized."
+    when KCLAuthorizationStatusDenied
+    when KCLAuthorizationStatusRestricted
+      dp "Using location service is restricted."
+    end
+
+    # Wi-Fiの接続監視を開始
+    @wifiConnector.startMonitoring
+    # 画面を更新
+    updateShowWifiSettingCell
+    updateShowBluetoothSettingCell
+    updateCameraConnectionCells
+    # updateCameraOperationCells
+  end
+
+  # アプリケーションが非アクティブになる時に呼び出されます。
+  def applicationWillResignActive(notification)
+    # 強制的に、カメラとのアプリ接続を解除します。
+    error = Pointer.new(:object)
+    if @camera.disconnectWithPowerOff(false, error:error)
+      dp "カメラとのアプリ接続解除に失敗しました。"
+      dp "エラーを無視して続行します。"
+    end
+
+    # 強制的に、カメラとのBluetooth接続を解除します。
+    @camera.bluetoothPeripheral = nil
+    @camera.bluetoothPassword = nil
+    unless @bluetoothConnector.disconnectPeripheral(error)
+      dp "カメラとのBluetooth接続解除に失敗しました。"
+      dp "エラーを無視して続行します。"
+    end
+
+    # Bluetoothの接続状態を監視停止
+    @bluetoothConnector.peripheral = nil
+    # Wi-Fiの接続監視を停止
+    @wifiConnector.stopMonitoring
+
+    # @TODO
+    # // カメラ操作の子画面を表示している場合は、この画面に戻します。
+    # [self backToConnectionView:NO];
+  end
+
+  # アプリケーションがバックグラウンドに入る時に呼び出されます。
+  def applicationDidEnterBackground(notification)
+    # TODO: このタイミングはカメラ接続を一時停止するために研究の余地があります。
+  end
+
+  # アプリケーションがフォアグラウンドに入る時に呼び出されます。
+  def applicationWillEnterForeground(notification)
+    # TODO: このタイミングはカメラ接続を復旧するために研究の余地があります。
+  end
+
+  #
+  # 以上基礎実装
+  #
+  # 以下固有実装
+  #
+
+  # 現在位置利用の権限が変化した時に呼び出されます。
+  def locationManager(manager, didChangeAuthorizationStatus:status)
+    case CLLocationManager.authorizationStatus
+    when KCLAuthorizationStatusNotDetermined
+      dp "Using location service isn't determind."
+    when KCLAuthorizationStatusAuthorizedAlways
+    when KCLAuthorizationStatusAuthorizedWhenInUse
+      dp "Using location service is already authorized."
+    when KCLAuthorizationStatusDenied
+    when KCLAuthorizationStatusRestricted
+      dp "Using location service is restricted."
+    end
+  end
+
+  # 写真アルバムの利用してよいか問い合わせます。
+  def assetsLibraryRequestWhenInUseAuthorization
+    library = ALAssetsLibrary.new
+    library.enumerateGroupsWithTypes(ALAssetsGroupAll, usingBlock:lambda do |group, stop|
+      break unless group
+      dp "group=#{group.valueForProperty(ALAssetsGroupPropertyName)}"
+    end, failureBlock:lambda do |error|
+      dp "error=#{error.localizedDescription}"
+    end)
   end
 
   # Wi-Fi接続の状態が変化した時に呼び出されます。
@@ -154,23 +266,6 @@ class SettingsViewController < UIViewController
 
     # カメラ操作の子画面を表示している場合は、この画面に戻します。
     # self.backToConnectionView(true)
-  end
-
-  # アプリケーションがアクティブになる時に呼び出されます。
-  def applicationDidBecomeActive(notification)
-    # Wi-Fiの接続監視を開始
-    @wifiConnector.startMonitoring
-    # 画面を更新
-    updateShowWifiSettingCell
-    updateShowBluetoothSettingCell
-    updateCameraConnectionCells
-    # updateCameraOperationCells
-  end
-
-  # アプリケーションが非アクティブになる時に呼び出されます。
-  def applicationWillResignActive(notification)
-    # Wi-Fiの接続監視を停止
-    @wifiConnector.stopMonitoring
   end
 
   # ひとつひとつのセルのenableをスイッチ
@@ -292,18 +387,9 @@ class SettingsViewController < UIViewController
     @showBluetoothSettingCell.detailTextLabel.text = @setting['bluetoothLocalName'] if @showBluetoothSettingCell
   end
 
-  # def viewWillAppear(animated)
-  #   super
-  # end
-
-  def dealloc
-    notificationCenter = NSNotificationCenter.defaultCenter
-    notificationCenter.removeObserver(self, name: BluetoothConnectionChangedNotification, object:nil)
-
-    notificationCenter.removeObserver(self, name:'UIApplicationDidBecomeActiveNotification', object:nil)
-    notificationCenter.removeObserver(self, name:'UIApplicationWillResignActiveNotification', object:nil)
-    # notificationCenter.removeObserver(self, name:'UIApplicationDidEnterBackgroundNotification', object:nil)
-    # notificationCenter.removeObserver(self, name:'UIApplicationWillEnterForegroundNotification', object:nil)
+  def viewWillAppear(animated)
+    super
+    navigationController.setToolbarHidden(true, animated:animated)
   end
 
   # dataSource = self に必須のメソッド1/2
@@ -352,7 +438,13 @@ class SettingsViewController < UIViewController
     when :@connectWithUsingBluetoothCellCell
       didSelectRowAtConnectWithUsingBluetoothCell
     when :@connectWithUsingWifiCell
-      didSelectRowAtConnectWithUsingWifiCell
+      if @camera.connected
+        PhotoViewController.new.tap do |controller|
+          self.navigationController.pushViewController(controller, animated:true)
+        end
+      else
+        didSelectRowAtConnectWithUsingWifiCell
+      end
     when :@disconnectCell
       didSelectRowAtDisconnectCell
     when :@disconnectAndSleepCell

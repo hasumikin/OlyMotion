@@ -2,13 +2,16 @@ class AppCameraLog
 
   # Rubymotionではシングルトンモジュールが使えない
   def self.instance
-    Dispatch.once { @@instance ||= new }
+    Dispatch.once { @@instance ||= alloc.init }
     @@instance
   end
 
-  def initialize
-    @mutableMessages = []
-    OLYCameraLog.setDelegate(self)
+  def init()
+    if super
+      @mutableMessages = []
+      OLYCameraLog.setDelegate(self)
+    end
+    self
   end
 
   def messages

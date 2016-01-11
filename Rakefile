@@ -35,6 +35,7 @@ Motion::Project::App.setup do |app|
   app.info_plist['NSAppTransportSecurity'] = { 'NSAllowsArbitraryLoads' => true }
   # app/env.rbとセットで効く
   environment_variables.each { |key, value| app.info_plist["ENV_#{key}"] = value }
+  app.interface_orientations = [:landscape_left, :landscape_right]
 
   app.pods do
     pod 'AFNetworking'
@@ -42,7 +43,7 @@ Motion::Project::App.setup do |app|
     pod 'MBProgressHUD'
   end
 
-  app.frameworks += %w(CoreBluetooth)
+  app.frameworks += %w(CoreBluetooth AssetsLibrary CLLocationManager)
   app.vendor_project(
     'vendor/OLYCameraKit.framework',
     :static,
