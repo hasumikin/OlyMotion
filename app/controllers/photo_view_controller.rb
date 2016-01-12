@@ -32,14 +32,26 @@ class PhotoViewController < UIViewController
     setting = AppSetting.instance
     setting.addObserver(self, forKeyPath:"showLiveImageGrid", options:0, context:'didChangeShowLiveImageGrid:')
 
-    @liveImageView = LiveImage.new
+    @liveImageView = LiveImageView.new
     self.view.addSubview(@liveImageView)
+    @panelView = PanelView.new
+    self.view.addSubview(@panelView)
+    photoViewHeight = Device.screen.height
+    photoViewWidth  = photoViewHeight * 1.5
     Motion::Layout.new do |layout|
       layout.view self.view
-      layout.subviews liveImageView: @liveImageView
+      layout.subviews liveImageView: @liveImageView, panelView: @panelView
       layout.vertical "|[liveImageView]|"
-      layout.horizontal "|[liveImageView]|"
+      layout.vertical "|[panelView]|"
+      layout.horizontal "|[liveImageView(#{photoViewWidth})][panelView]|"
     end
+
+    NSNotificationCenter.defaultCenter.addObserver(self, selector:'close', name:'PhotoViewCloseButtonWasTapped', object:nil)
+  end
+
+  def close
+    dp 'PhotoViewクローズ'
+    navigationController.popToRootViewControllerAnimated(true)
   end
 
   def viewDidAppear(animated)
@@ -50,7 +62,14 @@ class PhotoViewController < UIViewController
 
   def viewWillAppear(animated)
     super(animated)
+    navigationController.setNavigationBarHidden(true, animated:animated)
     navigationController.setToolbarHidden(true, animated:animated)
+  end
+
+  def viewWillDisappear(animated)
+    super(animated)
+    navigationController.setNavigationBarHidden(false, animated:animated)
+    NSNotificationCenter.defaultCenter.removeObserver(self, name:'PhotoViewCloseButtonWasTapped', object:nil)
   end
 
   def viewDidDisappear(animated)

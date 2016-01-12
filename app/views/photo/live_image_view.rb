@@ -1,4 +1,4 @@
-class LiveImage < UIImageView
+class LiveImageView < UIImageView
   include DebugConcern
 
   def initWithFrame(frame)

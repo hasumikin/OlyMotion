@@ -10,6 +10,8 @@ gem 'afmotion'
 gem 'motion-layout'
 gem 'ib'
 gem 'motion-support'
+gem 'sugarcube', require: 'sugarcube-classic'
+gem 'motion_print'
 
 # ruby汎用のgems
 gem 'dotenv'
