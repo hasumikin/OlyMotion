@@ -3,7 +3,12 @@ class SettingsViewController < UIViewController
   include UIViewControllerThreading
   include DebugConcern
 
-  attr_accessor :bluetoothConnector, :wifiConnector, :showWifiSettingCell, :table
+  attr_accessor :bluetoothConnector, :wifiConnector, :settingsTable
+
+  def loadView
+    @settingsTable = SettingsTable.new
+    self.view = SettingsTableView.new(model:@settingsTable)
+  end
 
   def viewDidLoad
     super
@@ -29,59 +34,19 @@ class SettingsViewController < UIViewController
     @camera = AppCamera.instance#appDelegate.camera#
     @setting = AppSetting.instance#appDelegate.setting
 
-    @table = UITableView.alloc.initWithFrame(self.view.bounds)
-    @table.autoresizingMask = UIViewAutoresizingFlexibleHeight
-    self.view.addSubview(@table)
-    @table.dataSource = self
-    @table.delegate = self
+    # @table = UITableView.alloc.initWithFrame(self.view.bounds)
+    # @table.autoresizingMask = UIViewAutoresizingFlexibleHeight
+    # self.view.addSubview(@table)
+    settingsTableView = self.view
+    settingsTableView.table.dataSource = @settingsTable#self
+    settingsTableView.table.delegate = self
 
-    @table_data = [
-      { title: 'Access Method',
-        rows: [
-          { label: 'Bluetooth',
-            detail: '$bluetoothLocalName',
-            accessory_type: UITableViewCellAccessoryDisclosureIndicator,
-            outlet: :@showBluetoothSettingCell
-          },
-          { label: 'Wi-Fi',
-            detail: '$ssid',
-            accessory_type: UITableViewCellAccessoryDisclosureIndicator,
-            outlet: :@showWifiSettingCell
-          }
-        ]
-      },
-      { title: 'Connection',
-        rows: [
-          { label: 'Connect with Bluetooth',
-            detail: '',
-            accessory_type: UITableViewCellAccessoryNone,
-            outlet: :@connectWithUsingBluetoothCell
-          },
-          { label: 'Connect with Wi-Fi',
-            detail: '',
-            accessory_type: UITableViewCellAccessoryDisclosureIndicator,
-            outlet: :@connectWithUsingWifiCell
-          },
-          { label: 'Disconnect',
-            detail: '',
-            accessory_type: UITableViewCellAccessoryNone,
-            outlet: :@disconnectCell
-          },
-          { label: 'Disconnect and Sleep',
-            detail: '',
-            accessory_type: UITableViewCellAccessoryNone,
-            outlet: :@disconnectAndSleepCell
-          }
-        ]
-      }
-    ]
-
-    Motion::Layout.new do |layout|
-      layout.view self.view
-      layout.subviews table: @table
-      layout.vertical "|[table]|"
-      layout.horizontal "|[table]|"
-    end
+    # Motion::Layout.new do |layout|
+    #   layout.view self.view
+    #   layout.subviews table: @table
+    #   layout.vertical "|[table]|"
+    #   layout.horizontal "|[table]|"
+    # end
 
     # Wi-Fiの接続状態を監視するインスタンス
     @wifiConnector = WifiConnector.new
@@ -135,10 +100,10 @@ class SettingsViewController < UIViewController
     # Wi-Fiの接続監視を開始
     @wifiConnector.startMonitoring
     # 画面を更新
-    updateShowWifiSettingCell
-    updateShowBluetoothSettingCell
-    updateCameraConnectionCells
-    # updateCameraOperationCells
+    @settingsTable.updateShowWifiSettingCell(@wifiConnector)
+    @settingsTable.updateShowBluetoothSettingCell
+    @settingsTable.updateCameraConnectionCells(@wifiConnector, @bluetoothConnector)
+    # @settingsTable.updateCameraOperationCells(@wifiConnector, @bluetoothConnector)
   end
 
   # アプリケーションが非アクティブになる時に呼び出されます。
@@ -221,10 +186,10 @@ class SettingsViewController < UIViewController
       }
     else
       # 画面表示を更新します。
-      updateShowWifiSettingCell
-      updateShowBluetoothSettingCell
-      updateCameraConnectionCells
-      # updateCameraOperationCells
+      @settingsTable.updateShowWifiSettingCell(@wifiConnector)
+      @settingsTable.updateShowBluetoothSettingCell
+      @settingsTable.updateCameraConnectionCells(@wifiConnector, @bluetoothConnector)
+      # @settingsTable.updateCameraOperationCells(@wifiConnector, @bluetoothConnector)
     end
   end
 
@@ -260,131 +225,12 @@ class SettingsViewController < UIViewController
     end
 
     # 画面表示を更新します。
-    updateShowBluetoothSettingCell
-    updateCameraConnectionCells
-    # self.updateCameraOperationCells
+    @settingsTable.updateShowBluetoothSettingCell
+    @settingsTable.updateCameraConnectionCells(@wifiConnector, @bluetoothConnector)
+    # @settingsTable.updateCameraOperationCells(@wifiConnector, @bluetoothConnector)
 
     # カメラ操作の子画面を表示している場合は、この画面に戻します。
     # self.backToConnectionView(true)
-  end
-
-  # ひとつひとつのセルのenableをスイッチ
-  # def updateCell(outlet, enable, accessoryType = nil)
-  #   if @table
-  #     dp "tableView!!!!! #{outlet}"
-  #     dp "enable=#{enable}"
-  #     dp "accessoryType=#{accessoryType}"
-  #     section_index = nil
-  #     row_index = nil
-  #     @table_data.each_with_index do |section, index|
-  #       if row_index = section[:rows].index{|row| row[:outlet] == outlet}
-  #         section_index = index
-  #         break
-  #       end
-  #     end
-  #   else
-  #     dp "tableView??????? #{outlet}"
-  #   end
-  #   if row_index && section_index
-  #     indexPath = NSIndexPath.indexPathForRow(row_index, inSection:section_index)
-  #     cell = @table.cellForRowAtIndexPath(indexPath)
-  def updateCell(cell, enable, accessoryType = nil)
-      if @table && cell
-        cell.userInteractionEnabled  = enable unless enable.nil?
-        cell.textLabel.enabled       = enable unless enable.nil?
-        cell.detailTextLabel.enabled = enable unless enable.nil?
-        cell.accessoryType    = accessoryType if accessoryType
-      else
-        dp "cellがnil？"
-      end
-    end
-  # end
-
-  # アプリ接続の状態を画面に表示します。
-  def updateCameraConnectionCells
-    if @camera.connected && @camera.connectionType == OLYCameraConnectionTypeBluetoothLE
-      dp "Bluetoothで接続中です。"
-      updateCell(@connectWithUsingBluetoothCell, false, UITableViewCellAccessoryCheckmark)
-      updateCell(@connectWithUsingWiFiCell, false, UITableViewCellAccessoryNone)
-      updateCell(@disconnectCell, true)
-      updateCell(@disconnectAndSleepCell, true)
-    elsif @camera.connected && @camera.connectionType == OLYCameraConnectionTypeWiFi
-      dp "Wi-Fiで接続中です。"
-      updateCell(@connectWithUsingBluetoothCell, false, UITableViewCellAccessoryNone)
-      updateCell(@connectWithUsingWiFiCell, false, UITableViewCellAccessoryCheckmark)
-      updateCell(@disconnectCell, true)
-      updateCell(@disconnectAndSleepCell, true)
-    else
-      dp "未接続です。"
-      if @bluetoothConnector.connectionStatus != 'BluetoothConnectionStatusUnknown'
-        dp "Bluetooth使用可"
-        updateCell(@connectWithUsingBluetoothCell, true)
-      else
-        dp "Bluetooth使用不可"
-        updateCell(@connectWithUsingBluetoothCell, false)
-      end
-      if @wifiConnector.connectionStatus == 'WifiConnectionStatusConnected'
-        if @wifiConnector.cameraStatus == 'WifiCameraStatusReachable'
-          dp "Wi-Fi接続済みで接続先はカメラ"
-          updateCell(@connectWithUsingWiFiCell, true)
-        elsif @wifiConnector.cameraStatus == 'WifiCameraStatusUnreachable'
-          dp "Wi-Fi接続済みで接続先はカメラではない"
-          if @bluetoothConnector.connectionStatus != 'BluetoothConnectionStatusUnknown'
-            dp "Wi-Fi接続済みで接続先はカメラ以外なため自動でカメラに接続できる見込みなし"
-            dp "だが、カメラの電源を入れることぐらいはできるかもしれない"
-            updateCell(@connectWithUsingWiFiCell, true)
-          else
-            dp "Wi-Fi接続済みで接続先はカメラ以外なため自動でカメラに接続できる見込みなし"
-            updateCell(@connectWithUsingWiFiCell, false)
-          end
-        else
-          dp "Wi-Fi接続済みで接続先は確認中"
-          dp "カメラにアクセスできるか否かが確定するまでの間は操作を許可しない"
-          updateCell(@connectWithUsingWiFiCell, false)
-        end
-      else
-        if @bluetoothConnector.connectionStatus != 'BluetoothConnectionStatusUnknown'
-          dp "Wi-Fi未接続でBluetooth経由の電源投入により自動接続できる見込みあり"
-          updateCell(@connectWithUsingWiFiCell, true)
-        else
-          dp "Wi-Fi未接続でBluetooth使用不可なため自動でカメラに接続できる見込みなし"
-          updateCell(@connectWithUsingWiFiCell, false)
-        end
-      end
-      updateCell(@disconnectCell, false)
-      updateCell(@disconnectAndSleepCell, false)
-      updateCell(@connectWithUsingBluetoothCell, nil, UITableViewCellAccessoryNone)
-      updateCell(@connectWithUsingWiFiCell, nil, UITableViewCellAccessoryNone)
-    end
-  end
-
-
-  # Wi-Fi接続の状態を表示します。
-  def updateShowWifiSettingCell
-    return nil unless @showWifiSettingCell
-    wifiStatus = @wifiConnector.connectionStatus
-    @showWifiSettingCell.detailTextLabel.text = if wifiStatus == 'WifiConnectionStatusConnected'
-      # 接続されている場合はそのSSIDを表示します。
-      cameraStatus = @wifiConnector.cameraStatus
-      if cameraStatus == 'WifiCameraStatusReachable'
-        @wifiConnector.ssid ? @wifiConnector.ssid : "WifiConnected(null)"
-      elsif cameraStatus == 'WifiCameraStatusUnreachable1'
-        @wifiConnector.ssid ? "WifiNotConnected1(#{@wifiConnector.ssid})" : "WifiNotConnected1(null)"
-      elsif cameraStatus == 'WifiCameraStatusUnreachable2'
-        @wifiConnector.ssid ? "WifiNotConnected2(#{@wifiConnector.ssid})" : "WifiNotConnected2(null)"
-      else
-        "WifiStatusUnknown1" # Wi-Fi接続済みで接続先は確認中
-      end
-    elsif wifiStatus == 'WifiConnectionStatusNotConnected'
-      "WifiNotConnected"
-    else
-      "WifiStatusUnknown2"
-    end
-    @showWifiSettingCell.userInteractionEnabled = true
-  end
-
-  def updateShowBluetoothSettingCell
-    @showBluetoothSettingCell.detailTextLabel.text = @setting['bluetoothLocalName'] if @showBluetoothSettingCell
   end
 
   def viewWillAppear(animated)
@@ -392,42 +238,10 @@ class SettingsViewController < UIViewController
     navigationController.setToolbarHidden(true, animated:animated)
   end
 
-  # dataSource = self に必須のメソッド1/2
-  def tableView(tableView, numberOfRowsInSection: section)
-    @table_data[section][:rows].size
-  end
-
-  # dataSource = self に必須のメソッド2/2
-  def tableView(tableView, cellForRowAtIndexPath: indexPath)
-    @reuseIdentifier ||= "CELL_IDENTIFIER"
-    cell = tableView.dequeueReusableCellWithIdentifier(@reuseIdentifier) || begin
-      UITableViewCell.alloc.initWithStyle(UITableViewCellStyleValue1, reuseIdentifier:@reuseIdentifier)
-    end
-    # ↑ここまではお決まりのコード
-    # ↓ここでテーブルにデータを入れる
-    row = @table_data[indexPath.section][:rows][indexPath.row]
-    instance_variable_set(row[:outlet], cell) if row[:outlet]
-    cell.textLabel.text       = row[:label]
-    cell.detailTextLabel.text = row[:detail]
-    cell.accessoryType        = row[:accessory_type]
-    # ↓セルを返す。本メソッドの末尾にこれが必須
-    cell
-  end
-
-  #セクションの数
-  def numberOfSectionsInTableView(tableView)
-    @table_data.size
-  end
-
-  # セクションのタイトル
-  def tableView(tableView, titleForHeaderInSection: section)
-    @table_data[section][:title]
-  end
-
   # テーブルの行がタップされた
   def tableView(tableView, didSelectRowAtIndexPath:indexPath)
     tableView.deselectRowAtIndexPath(indexPath, animated: false)
-    outlet = @table_data[indexPath.section][:rows][indexPath.row][:outlet]
+    outlet = @settingsTable.data[indexPath.section][:rows][indexPath.row][:outlet]
     case outlet
     when :@showWifiSettingCell
       openWifiConfig
@@ -579,12 +393,12 @@ class SettingsViewController < UIViewController
         # # 作者の環境ではiPhone 4Sだと10秒程度かかっています。
         weakSelf.reportBlockConnectingWifi(progressView)
         Dispatch::Queue.main.async {
-          weakSelf.showWifiSettingCell.detailTextLabel.text = "ConnectingWifi"
+          weakSelf.settingsTable.showWifiSettingCell.detailTextLabel.text = "ConnectingWifi"
         }
         unless weakSelf.wifiConnector.waitForConnected(20.0)
           # Connecting... を元に戻します。
           Dispatch::Queue.main.async {
-            weakSelf.updateShowWifiSettingCell
+            weakSelf.settingsTable.updateShowWifiSettingCell(@wifiConnector)
           }
           # Wi-Fi接続が有効になりませんでした。
           if weakSelf.wifiConnector.connectionStatus != 'WifiConnectionStatusConnected'
@@ -635,9 +449,9 @@ class SettingsViewController < UIViewController
 
       dp "画面表示を更新します。"
       Dispatch::Queue.main.async {
-        weakSelf.updateShowWifiSettingCell
-        weakSelf.updateShowBluetoothSettingCell
-        weakSelf.updateCameraConnectionCells
+        weakSelf.settingsTable.updateShowWifiSettingCell(@wifiConnector)
+        weakSelf.settingsTable.updateShowBluetoothSettingCell
+        weakSelf.settingsTable.updateCameraConnectionCells(@wifiConnector, @bluetoothConnector)
         dp "weakSelf.updateCameraOperationCells"
         dp "weakSelf.table.scrollToRowAtIndexPath(weakSelf.visibleWhenConnected, atScrollPosition:UITableViewScrollPositionMiddle, animated:true)"
       }
@@ -683,9 +497,9 @@ class SettingsViewController < UIViewController
 
       dp "画面表示を更新します。"
       Dispatch::Queue.main.async {
-        weakSelf.updateShowBluetoothSettingCell
-        weakSelf.updateShowWifiSettingCell
-        weakSelf.updateCameraConnectionCells
+        weakSelf.settingsTable.updateShowBluetoothSettingCell
+        weakSelf.settingsTable.updateShowWifiSettingCell(@wifiConnector)
+        weakSelf.settingsTable.updateCameraConnectionCells(@wifiConnector, @bluetoothConnector)
         # weakSelf.updateCameraOperationCells
       }
 
@@ -735,7 +549,7 @@ class SettingsViewController < UIViewController
         dp "作者の環境ではiPhone 4Sだと10秒程度かかっています。"
         weakSelf.reportBlockConnectingWifi(progressView, true)
         Dispatch::Queue.main.async {
-          weakSelf.showWifiSettingCell.detailTextLabel.text = "DisconnectingWifi"
+          weakSelf.settingsTable.showWifiSettingCell.detailTextLabel.text = "DisconnectingWifi"
         }
         if weakSelf.wifiConnector.waitForDisconnected(20.0)
           dp "エラーを無視して続行します。"
@@ -745,9 +559,9 @@ class SettingsViewController < UIViewController
 
       dp "画面表示を更新します。"
       Dispatch::Queue.main.async {
-        weakSelf.updateShowBluetoothSettingCell
-        weakSelf.updateShowWifiSettingCell
-        weakSelf.updateCameraConnectionCells
+        weakSelf.settingsTable.updateShowBluetoothSettingCell
+        weakSelf.settingsTable.updateShowWifiSettingCell(@wifiConnector)
+        weakSelf.settingsTable.updateCameraConnectionCells(@wifiConnector, @bluetoothConnector)
         # weakSelf.updateCameraOperationCells
       }
 
