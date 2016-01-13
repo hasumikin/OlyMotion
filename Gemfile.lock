@@ -87,3 +87,6 @@ DEPENDENCIES
   motion_print
   rake
   sugarcube
+
+BUNDLED WITH
+   1.11.2
