@@ -93,8 +93,9 @@ class SettingsTable
   end
 
   # Wi-Fi接続の状態を表示します。
-  def updateShowWifiSettingCell(wifiConnector)
+  def updateShowWifiSettingCell(wifiConnector = nil)
     return nil unless @showWifiSettingCell
+    wifiConnector ||= WifiConnector.new
     @showWifiSettingCell.detailTextLabel.text = case wifiConnector.connectionStatus
     when 'WifiConnectionStatusConnected'
       # 接続されている場合はそのSSIDを表示します。

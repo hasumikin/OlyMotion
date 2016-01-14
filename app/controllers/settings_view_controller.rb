@@ -7,7 +7,7 @@ class SettingsViewController < UIViewController
 
   def loadView
     @settingsTable = SettingsTable.new
-    self.view = SettingsTableView.new(model:@settingsTable)
+    self.view = SettingsTableView.new(@settingsTable)
   end
 
   def viewDidLoad
@@ -35,6 +35,7 @@ class SettingsViewController < UIViewController
     @setting = AppSetting.instance
 
     settingsTableView = self.view
+    settingsTableView.refreshControl.addTarget(self, action:"updateSettingsTable:", forControlEvents: UIControlEventValueChanged)
     settingsTableView.table.dataSource = @settingsTable
     settingsTableView.table.delegate = self
 
@@ -90,10 +91,7 @@ class SettingsViewController < UIViewController
     # Wi-Fiの接続監視を開始
     @wifiConnector.startMonitoring
     # 画面を更新
-    @settingsTable.updateShowWifiSettingCell(@wifiConnector)
-    @settingsTable.updateShowBluetoothSettingCell
-    @settingsTable.updateCameraConnectionCells(@wifiConnector, @bluetoothConnector)
-    # @settingsTable.updateCameraOperationCells(@wifiConnector, @bluetoothConnector)
+    updateSettingsTable(nil)
   end
 
   # アプリケーションが非アクティブになる時に呼び出されます。
@@ -139,6 +137,16 @@ class SettingsViewController < UIViewController
   # 以下固有実装
   #
 
+  def updateSettingsTable(refreshControl = nil)
+    Dispatch::Queue.main.async {
+      @settingsTable.updateShowWifiSettingCell(@wifiConnector)
+      @settingsTable.updateShowBluetoothSettingCell
+      @settingsTable.updateCameraConnectionCells(@wifiConnector, @bluetoothConnector)
+      # @settingsTable.updateCameraOperationCells(@wifiConnector, @bluetoothConnector)
+      refreshControl.try(:endRefreshing)
+    }
+  end
+
   # 現在位置利用の権限が変化した時に呼び出されます。
   def locationManager(manager, didChangeAuthorizationStatus:status)
     case CLLocationManager.authorizationStatus
@@ -176,10 +184,7 @@ class SettingsViewController < UIViewController
       }
     else
       # 画面表示を更新します。
-      @settingsTable.updateShowWifiSettingCell(@wifiConnector)
-      @settingsTable.updateShowBluetoothSettingCell
-      @settingsTable.updateCameraConnectionCells(@wifiConnector, @bluetoothConnector)
-      # @settingsTable.updateCameraOperationCells(@wifiConnector, @bluetoothConnector)
+      updateSettingsTable(nil)
     end
   end
 
@@ -214,9 +219,7 @@ class SettingsViewController < UIViewController
     end
 
     # 画面表示を更新します。
-    @settingsTable.updateShowBluetoothSettingCell
-    @settingsTable.updateCameraConnectionCells(@wifiConnector, @bluetoothConnector)
-    # @settingsTable.updateCameraOperationCells(@wifiConnector, @bluetoothConnector)
+    updateSettingsTable(nil)
 
     # カメラ操作の子画面を表示している場合は、この画面に戻します。
     # self.backToConnectionView(true)
@@ -376,9 +379,7 @@ class SettingsViewController < UIViewController
         }
         unless weakSelf.wifiConnector.waitForConnected(20.0)
           # Connecting... を元に戻します。
-          Dispatch::Queue.main.async {
-            weakSelf.settingsTable.updateShowWifiSettingCell(@wifiConnector)
-          }
+          weakSelf.updateSettingsTable(nil)
           # Wi-Fi接続が有効になりませんでした。
           if weakSelf.wifiConnector.connectionStatus != 'WifiConnectionStatusConnected'
             # カメラにアクセスできるWi-Fi接続は見つかりませんでした。
@@ -426,11 +427,7 @@ class SettingsViewController < UIViewController
       end
 
       dp "画面表示を更新します。"
-      Dispatch::Queue.main.async {
-        weakSelf.settingsTable.updateShowWifiSettingCell(@wifiConnector)
-        weakSelf.settingsTable.updateShowBluetoothSettingCell
-        weakSelf.settingsTable.updateCameraConnectionCells(@wifiConnector, @bluetoothConnector)
-      }
+      weakSelf.updateSettingsTable(nil)
       weakSelf.reportBlockFinishedToProgress(progressView)
       dp "接続完了"
     end
@@ -468,12 +465,7 @@ class SettingsViewController < UIViewController
       end
 
       dp "画面表示を更新します。"
-      Dispatch::Queue.main.async {
-        weakSelf.settingsTable.updateShowBluetoothSettingCell
-        weakSelf.settingsTable.updateShowWifiSettingCell(@wifiConnector)
-        weakSelf.settingsTable.updateCameraConnectionCells(@wifiConnector, @bluetoothConnector)
-        # weakSelf.updateCameraOperationCells
-      }
+      weakSelf.updateSettingsTable(nil)
 
       dp "カメラの接続解除が完了しました。"
       weakSelf.reportBlockFinishedToProgress(progressView)
@@ -527,12 +519,7 @@ class SettingsViewController < UIViewController
       end
 
       dp "画面表示を更新します。"
-      Dispatch::Queue.main.async {
-        weakSelf.settingsTable.updateShowBluetoothSettingCell
-        weakSelf.settingsTable.updateShowWifiSettingCell(@wifiConnector)
-        weakSelf.settingsTable.updateCameraConnectionCells(@wifiConnector, @bluetoothConnector)
-        # weakSelf.updateCameraOperationCells
-      }
+      weakSelf.updateSettingsTable(nil)
 
       dp "カメラの接続解除が完了しました。"
       weakSelf.reportBlockFinishedToProgress(progressView)

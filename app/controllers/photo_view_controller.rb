@@ -294,7 +294,7 @@ class PhotoViewController < UIViewController
       @liveImageView.image = image
     end
     # dp "ライブビューの回転方向をライブビュー拡大表示の全体図に反映します。"
-    # self.liveImageOverallView.orientation = @liveImageView.image.imageOrientation;
+    # self.liveImageOverallView.orientation = @liveImageView.image.imageOrientation
   end
 
 end

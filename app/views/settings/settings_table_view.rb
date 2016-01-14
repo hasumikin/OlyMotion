@@ -2,12 +2,13 @@ class SettingsTableView < UIView
 
   include DebugConcern
 
-  attr_accessor :table
+  attr_accessor :table, :refreshControl
 
   def initialize(settingsTable)
-    @table = UITableView.alloc.initWithFrame(CGRectMake(0, 0, 0, 0), style:UITableViewStylePlain);
+    @settingsTable = settingsTable
+    @table = UITableView.alloc.initWithFrame(CGRectMake(0, 0, 0, 0), style:UITableViewStylePlain)
     @refreshControl = UIRefreshControl.new
-    @table.addSubview(@refreshControl)
+    @table << @refreshControl
 
     initWithFrame(CGRectMake(0, 0, 0, 0))
     self << @table
