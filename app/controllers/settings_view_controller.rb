@@ -31,22 +31,12 @@ class SettingsViewController < UIViewController
     notificationCenter.addObserver(self, selector:'didChangedAppSetting:', name:'AppSettingChangedNotification', object:nil)
 
     appDelegate = UIApplication.sharedApplication.delegate
-    @camera = AppCamera.instance#appDelegate.camera#
-    @setting = AppSetting.instance#appDelegate.setting
+    @camera = AppCamera.instance
+    @setting = AppSetting.instance
 
-    # @table = UITableView.alloc.initWithFrame(self.view.bounds)
-    # @table.autoresizingMask = UIViewAutoresizingFlexibleHeight
-    # self.view.addSubview(@table)
     settingsTableView = self.view
-    settingsTableView.table.dataSource = @settingsTable#self
+    settingsTableView.table.dataSource = @settingsTable
     settingsTableView.table.delegate = self
-
-    # Motion::Layout.new do |layout|
-    #   layout.view self.view
-    #   layout.subviews table: @table
-    #   layout.vertical "|[table]|"
-    #   layout.horizontal "|[table]|"
-    # end
 
     # Wi-Fiの接続状態を監視するインスタンス
     @wifiConnector = WifiConnector.new
@@ -61,7 +51,7 @@ class SettingsViewController < UIViewController
 
     unless @startingActivity
       # MARK: iOS9では初回の画面表示の際にapplicationDidBecomeActiveが呼び出されないのでここでフォローします。
-      # todo: バージョン判定のRubymotion的書き方がわからないので常に実行。そのうち直す
+      # @todo: バージョン判定のRubymotion的書き方がわからないので常に実行。そのうち直す
       # if NSProcessInfo.processInfo.isOperatingSystemAtLeastVersion('9.0')
       # dp "The application is running on iOS9!"
       applicationDidBecomeActive(nil)
@@ -86,7 +76,7 @@ class SettingsViewController < UIViewController
 
     # 現在位置利用の権限があるかを確認します。
     case CLLocationManager.authorizationStatus
-    when KCLAuthorizationStatusNotDetermined # 最初のkを大文字にするRM
+    when KCLAuthorizationStatusNotDetermined # 最初のkを大文字にするRMあるある
       dp "Using location service isn't determind."
       @locationManager.requestWhenInUseAuthorization
     when KCLAuthorizationStatusAuthorizedAlways
@@ -135,12 +125,12 @@ class SettingsViewController < UIViewController
 
   # アプリケーションがバックグラウンドに入る時に呼び出されます。
   def applicationDidEnterBackground(notification)
-    # TODO: このタイミングはカメラ接続を一時停止するために研究の余地があります。
+    # @TODO: このタイミングはカメラ接続を一時停止するために研究の余地があります。
   end
 
   # アプリケーションがフォアグラウンドに入る時に呼び出されます。
   def applicationWillEnterForeground(notification)
-    # TODO: このタイミングはカメラ接続を復旧するために研究の余地があります。
+    # @TODO: このタイミングはカメラ接続を復旧するために研究の余地があります。
   end
 
   #
@@ -213,9 +203,8 @@ class SettingsViewController < UIViewController
         # カメラとのアプリ接続を解除します。
         error = Pointer.new(:object)
         unless @camera.disconnectWithPowerOff(false, error:error)
-          # カメラのアプリ接続を解除できませんでした。
-          # エラーを無視して続行します。
-          dp "An error occurred, but ignores it."
+          dp "カメラのアプリ接続を解除できませんでした。"
+          dp "エラーを無視して続行します。"
         end
 
         # カメラとのBluetooth接続を解除します。
@@ -240,9 +229,8 @@ class SettingsViewController < UIViewController
 
   # テーブルの行がタップされた
   def tableView(tableView, didSelectRowAtIndexPath:indexPath)
-    tableView.deselectRowAtIndexPath(indexPath, animated: false)
-    outlet = @settingsTable.data[indexPath.section][:rows][indexPath.row][:outlet]
-    case outlet
+    tableView.deselectRowAtIndexPath(indexPath, animated:false)
+    case @settingsTable.data[indexPath.section][:rows][indexPath.row][:outlet]
     when :@showWifiSettingCell
       openWifiConfig
     when :@showBluetoothSettingCell
@@ -271,32 +259,25 @@ class SettingsViewController < UIViewController
     # カメラへの接続するのに電源投入も必要か否かを調べます。
     demandToWakeUpWithUsingBluetooth = false
     if @wifiConnector.connectionStatus == 'WifiConnectionStatusConnected'
-      if @wifiConnector.cameraStatus == 'WifiCameraStatusReachable'
-        # App.alert "2"
-        # Wi-Fi接続済みで接続先はカメラ
-      elsif @wifiConnector.cameraStatus == 'WifiCameraStatusUnreachable'
-        # Wi-Fi接続済みで接続先はカメラではない
+      case @wifiConnector.cameraStatus
+      when 'WifiCameraStatusReachable'   # Wi-Fi接続済みで接続先はカメラ
+      when 'WifiCameraStatusUnreachable' # Wi-Fi接続済みで接続先はカメラではない
         if @bluetoothConnector.connectionStatus != 'BluetoothConnectionStatusUnknown'
           # Wi-Fi接続済みで接続先はカメラ以外なため自動でカメラに接続できる見込みなし
           # だが、カメラの電源を入れることぐらいはできるかもしれない
-          # App.alert "3"
           demandToWakeUpWithUsingBluetooth = true
-        else
-          # Wi-Fi接続済みで接続先はカメラ以外なため自動でカメラに接続できる見込みなし
+        else # Wi-Fi接続済みで接続先はカメラ以外なため自動でカメラに接続できる見込みなし
           App.alert "WifiConnectionIsNotCamera"
           return
         end
-      else
-        # Wi-Fi接続済みで接続先は確認中
-        # TODO: どうすればよい?
+      else                               # Wi-Fi接続済みで接続先は確認中
+        # @TODO: どうすればよい?
       end
     else
       if @bluetoothConnector.connectionStatus != 'BluetoothConnectionStatusUnknown'
         # Wi-Fi未接続でBluetooth経由の電源投入により自動接続できる見込みあり
-        # App.alert "4"
         demandToWakeUpWithUsingBluetooth = true
-      else
-        # Wi-Fi未接続でBluetooth使用不可なため自動でカメラに接続できる見込みなし
+      else # Wi-Fi未接続でBluetooth使用不可なため自動でカメラに接続できる見込みなし
         App.alert "NoWifiConnections"
         return
       end
@@ -306,15 +287,14 @@ class SettingsViewController < UIViewController
     bluetoothLocalName = @setting['bluetoothLocalName']
     bluetoothPasscode = @setting['bluetoothPasscode']
     if demandToWakeUpWithUsingBluetooth
-      if !bluetoothLocalName || bluetoothLocalName.length == 0
-        # Bluetoothデバイスの設定が不完全です。
+      if !bluetoothLocalName || bluetoothLocalName.length == 0 # Bluetoothデバイスの設定が不完全
         App.alert "CouldNotConnectBluetoothByEmptySetting"
         return
       end
     end
 
     # # カメラの電源を投入し接続を開始します。
-    # # 作者の環境ではiPhone 4Sだと電源投入から接続確率まで20秒近くかかっています。
+    # # 作者の環境ではiPhone 4Sだと電源投入から接続確立まで20秒近くかかっています。
     weakSelf = WeakRef.new(self)
     weakSelf.bluetoothConnector.services = OLYCamera.bluetoothServices
     weakSelf.bluetoothConnector.localName = bluetoothLocalName
@@ -331,7 +311,7 @@ class SettingsViewController < UIViewController
           unless weakSelf.bluetoothConnector.discoverPeripheral(error_ptr)
             # カメラが見つかりませんでした。
             error = error_ptr[0]
-            weakSelf.alertOnMainThreadWithMessage(error.localizedDescription, title: "CouldNotConnectWifi6")
+            weakSelf.alertOnMainThreadWithMessage(error.localizedDescription, title:"CouldNotConnectWifi6")
             openWifiConfig
             next #【注】 Obj-c版では`return`と書いているが、rubyではnext
           end
@@ -342,7 +322,7 @@ class SettingsViewController < UIViewController
           unless weakSelf.bluetoothConnector.connectPeripheral(error_ptr)
             # カメラにBluetooth接続できませんでした。
             error = error_ptr[0]
-            weakSelf.alertOnMainThreadWithMessage(error.localizedDescription, title: "CouldNotConnectWifi7")
+            weakSelf.alertOnMainThreadWithMessage(error.localizedDescription, title:"CouldNotConnectWifi7")
             openWifiConfig
             next #【注】 Obj-c版では`return`と書いているが、rubyではnext
           end
@@ -367,11 +347,10 @@ class SettingsViewController < UIViewController
             #         Code = 195887114 (OLYCameraErrorOperationAborted)
             #         UserInfo = { NSLocalizedDescription=The camera did not respond in time. }
             #     }
-            # エラーにすると使い勝手が悪いので、無視して続行します。
-            dp "An error occurred, but ignore it."
+            dp " エラーにすると使い勝手が悪いので、無視して続行します。"
             wokenUp = true
           else
-            weakSelf.alertOnMainThreadWithMessage(error.localizedDescription, title: "CouldNotConnectWifi8")
+            weakSelf.alertOnMainThreadWithMessage(error.localizedDescription, title:"CouldNotConnectWifi8")
           end
           openWifiConfig
         end
@@ -386,11 +365,11 @@ class SettingsViewController < UIViewController
         end
         weakSelf.bluetoothConnector.peripheral = nil
 
-        # # カメラの電源を入れるのに失敗している場合はここで諦めます。
+        # カメラの電源を入れるのに失敗している場合はここで諦めます。
         next unless wokenUp #【注】 Obj-c版では`return`と書いているが、rubyではnext
-        # # カメラの電源を入れた後にカメラにアクセスできるWi-Fi接続が有効になるまで待ちます。
-        # # MARK: カメラ本体のLEDはすぐに接続中(緑)になるが、iOS側のWi-Fi接続が有効になるまで、10秒とか20秒とか、思っていたよりも時間がかかります。
-        # # 作者の環境ではiPhone 4Sだと10秒程度かかっています。
+        # カメラの電源を入れた後にカメラにアクセスできるWi-Fi接続が有効になるまで待ちます。
+        # MARK: カメラ本体のLEDはすぐに接続中(緑)になるが、iOS側のWi-Fi接続が有効になるまで、10秒とか20秒とか、思っていたよりも時間がかかります。
+        # 作者の環境ではiPhone 4Sだと10秒程度かかっています。
         weakSelf.reportBlockConnectingWifi(progressView)
         Dispatch::Queue.main.async {
           weakSelf.settingsTable.showWifiSettingCell.detailTextLabel.text = "ConnectingWifi"
@@ -404,8 +383,7 @@ class SettingsViewController < UIViewController
           if weakSelf.wifiConnector.connectionStatus != 'WifiConnectionStatusConnected'
             # カメラにアクセスできるWi-Fi接続は見つかりませんでした。
             weakSelf.alertOnMainThreadWithMessage("CouldNotDiscoverWifiConnection", title:"CouldNotConnectWifi1")
-          else
-            # カメラにアクセスできるWi-Fi接続ではありませんでした。(すでに別のアクセスポイントに接続している)
+          else # カメラにアクセスできるWi-Fi接続ではありませんでした。(すでに別のアクセスポイントに接続している)
             weakSelf.alertOnMainThreadWithMessage("WifiConnectionIsNotCamera", title:"CouldNotConnectWifi2")
           end
           openWifiConfig
@@ -452,11 +430,7 @@ class SettingsViewController < UIViewController
         weakSelf.settingsTable.updateShowWifiSettingCell(@wifiConnector)
         weakSelf.settingsTable.updateShowBluetoothSettingCell
         weakSelf.settingsTable.updateCameraConnectionCells(@wifiConnector, @bluetoothConnector)
-        dp "weakSelf.updateCameraOperationCells"
-        dp "weakSelf.table.scrollToRowAtIndexPath(weakSelf.visibleWhenConnected, atScrollPosition:UITableViewScrollPositionMiddle, animated:true)"
       }
-
-      dp "アプリ接続が完了しました。"
       weakSelf.reportBlockFinishedToProgress(progressView)
       dp "接続完了"
     end
@@ -480,7 +454,6 @@ class SettingsViewController < UIViewController
       unless @camera.disconnectWithPowerOff(false, error:error)
         dp "カメラのアプリ接続を解除できませんでした。"
         dp "エラーを無視して続行します。"
-        dp "An error occurred, but ignores it."
       end
       @camera.bluetoothPeripheral = nil
       @camera.bluetoothPassword = nil
@@ -490,7 +463,6 @@ class SettingsViewController < UIViewController
         unless weakSelf.bluetoothConnector.disconnectPeripheral(error)
           dp "カメラのBluetooth接続を解除できませんでした。"
           dp "エラーを無視して続行します。"
-          dp "An error occurred, but ignores it."
         end
         weakSelf.bluetoothConnector.peripheral = nil
       end
@@ -527,7 +499,6 @@ class SettingsViewController < UIViewController
       unless @camera.disconnectWithPowerOff(true, error:error)
         dp "カメラのアプリ接続を解除できませんでした。"
         dp "エラーを無視して続行します。"
-        dp "An error occurred, but ignores it."
       end
       @camera.bluetoothPeripheral = nil
       @camera.bluetoothPassword = nil
@@ -537,7 +508,6 @@ class SettingsViewController < UIViewController
         unless weakSelf.bluetoothConnector.disconnectPeripheral(error)
           dp "カメラのBluetooth接続を解除できませんでした。"
           dp "エラーを無視して続行します。"
-          dp "An error occurred, but ignores it."
         end
         dp "カメラとのBluetooth接続を解除します。"
         weakSelf.bluetoothConnector.peripheral = nil
@@ -553,7 +523,6 @@ class SettingsViewController < UIViewController
         }
         if weakSelf.wifiConnector.waitForDisconnected(20.0)
           dp "エラーを無視して続行します。"
-          dp "An error occurred, but ignores it."
         end
       end
 
@@ -587,60 +556,52 @@ class SettingsViewController < UIViewController
     }
   end
 
-  # 進捗画面にWi-Fi接続中を報告します。
-  # disconnect == true のときは切断中を表現
-  def reportBlockConnectingWifi(progress, disconnect = false)
+  def reportAnimation(progress, imageFiles, reverse = false)
     Dispatch::Queue.main.sync {
-      images = [
-        UIImage.imageNamed("Progress-Wifi-25"),
-        UIImage.imageNamed("Progress-Wifi-50"),
-        UIImage.imageNamed("Progress-Wifi-75"),
-        UIImage.imageNamed("Progress-Wifi-100")
-      ]
-      images.reverse! if disconnect
+      images = imageFiles.map{ |file| UIImage.imageNamed(file) }
+      images.reverse! if reverse
       progressImageView = UIImageViewAnimation.alloc.initWithImage(images[0])
       progressImageView.tintColor = UIColor.whiteColor
       progressImageView.setAnimationTemplateImages(images)
       progressImageView.animationDuration = 1.0
       progressImageView.alpha = 0.75
-
       progress.customView = progressImageView
       progress.mode = MBProgressHUDModeCustomView
-
       progressImageView.startAnimating
     }
   end
 
+  # 進捗画面にWi-Fi接続中を報告します。
+  # disconnect == true のときは切断中を表現
+  def reportBlockConnectingWifi(progress, disconnect = false)
+    imageFiles = [
+      "Progress-Wifi-25",
+      "Progress-Wifi-50",
+      "Progress-Wifi-75",
+      "Progress-Wifi-100"
+    ]
+    reportAnimation(progress, imageFiles, disconnect)
+  end
+
   # 進捗画面に電源投入中を報告します。
-  # 【重要】サイズ的ユニバーサル画像リソースのためにgem 'ib'をつかっています
+  # 【重要】ユニバーサル画像リソースのためにgem 'ib'をつかっています
   # 使い方：http://blog.76things.com/asset-catalogs-with-rubymotion/
   def reportBlockWakingUp(progress)
-    Dispatch::Queue.main.sync {
-      images = [
-        UIImage.imageNamed("Progress-Power-10"),
-        UIImage.imageNamed("Progress-Power-20"),
-        UIImage.imageNamed("Progress-Power-30"),
-        UIImage.imageNamed("Progress-Power-40"),
-        UIImage.imageNamed("Progress-Power-50"),
-        UIImage.imageNamed("Progress-Power-60"),
-        UIImage.imageNamed("Progress-Power-70"),
-        UIImage.imageNamed("Progress-Power-80"),
-        UIImage.imageNamed("Progress-Power-90"),
-        UIImage.imageNamed("Progress-Power-100"),
-        UIImage.imageNamed("Progress-Power-70"),
-        UIImage.imageNamed("Progress-Power-40")
-      ]
-      progressImageView = UIImageViewAnimation.alloc.initWithImage(images[0])
-      progressImageView.tintColor = UIColor.whiteColor
-      progressImageView.setAnimationTemplateImages(images)
-      progressImageView.animationDuration = 1.0
-      progressImageView.alpha = 0.75
-
-      progress.customView = progressImageView
-      progress.mode = MBProgressHUDModeCustomView
-
-      progressImageView.startAnimating
-    }
+    imageFiles = [
+      "Progress-Power-10",
+      "Progress-Power-20",
+      "Progress-Power-30",
+      "Progress-Power-40",
+      "Progress-Power-50",
+      "Progress-Power-60",
+      "Progress-Power-70",
+      "Progress-Power-80",
+      "Progress-Power-90",
+      "Progress-Power-100",
+      "Progress-Power-70",
+      "Progress-Power-40"
+    ]
+    reportAnimation(progress, imageFiles)
   end
 
   def alertOnMainThreadWithMessage(message, title:title)

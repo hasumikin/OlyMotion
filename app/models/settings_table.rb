@@ -49,12 +49,12 @@ class SettingsTable
     ]
   end
 
-  # dataSource = self に必須のメソッド1/2
+  # dataSourceメソッド1/2
   def tableView(tableView, numberOfRowsInSection: section)
     @data[section][:rows].size
   end
 
-  # dataSource = self に必須のメソッド2/2
+  # dataSourceメソッド2/2
   def tableView(tableView, cellForRowAtIndexPath: indexPath)
     @reuseIdentifier ||= "CELL_IDENTIFIER"
     cell = tableView.dequeueReusableCellWithIdentifier(@reuseIdentifier) || begin
@@ -95,20 +95,20 @@ class SettingsTable
   # Wi-Fi接続の状態を表示します。
   def updateShowWifiSettingCell(wifiConnector)
     return nil unless @showWifiSettingCell
-    wifiStatus = wifiConnector.connectionStatus
-    @showWifiSettingCell.detailTextLabel.text = if wifiStatus == 'WifiConnectionStatusConnected'
+    @showWifiSettingCell.detailTextLabel.text = case wifiConnector.connectionStatus
+    when 'WifiConnectionStatusConnected'
       # 接続されている場合はそのSSIDを表示します。
-      cameraStatus = wifiConnector.cameraStatus
-      if cameraStatus == 'WifiCameraStatusReachable'
+      case wifiConnector.cameraStatus
+      when 'WifiCameraStatusReachable'
         wifiConnector.ssid ? wifiConnector.ssid : "WifiConnected(null)"
-      elsif cameraStatus == 'WifiCameraStatusUnreachable1'
+      when 'WifiCameraStatusUnreachable1'
         wifiConnector.ssid ? "WifiNotConnected1(#{wifiConnector.ssid})" : "WifiNotConnected1(null)"
-      elsif cameraStatus == 'WifiCameraStatusUnreachable2'
+      when 'WifiCameraStatusUnreachable2'
         wifiConnector.ssid ? "WifiNotConnected2(#{wifiConnector.ssid})" : "WifiNotConnected2(null)"
       else
         "WifiStatusUnknown1" # Wi-Fi接続済みで接続先は確認中
       end
-    elsif wifiStatus == 'WifiConnectionStatusNotConnected'
+    when 'WifiConnectionStatusNotConnected'
       "WifiNotConnected"
     else
       "WifiStatusUnknown2"
