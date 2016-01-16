@@ -3,10 +3,11 @@ class PhotoViewController < UIViewController
   include UIViewControllerThreading
   include DebugConcern
 
-  attr_accessor :previousRunMode, :liveImageView
+  attr_accessor :previousRunMode, :liveImageView, :restorationIdentifier
 
   def viewDidLoad
     super
+    @restorationIdentifier = 'PhotoViewController'
     # ビューコントローラーの活動状態を初期化します。
     @startingActivity = false
     @previousRunMode = OLYCameraRunModeUnknown

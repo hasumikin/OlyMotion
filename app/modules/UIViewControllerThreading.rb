@@ -35,23 +35,21 @@ module UIViewControllerThreading
   # def showProgress:(BOOL)animated {
   # dp "animated={animated ? 'YES' : 'NO'}"
 
-  #   UIWindow *window = GetApp().window;
+  #   window = UIApplication.sharedApplication.windows[0]
   #   [MBProgressHUD showHUDAddedTo:window animated:YES];
   # end
 
   # def hideProgress:(BOOL)animated {
   # dp "animated={animated ? 'YES' : 'NO'}"
 
-  #   UIWindow *window = GetApp().window;
+  #   window = UIApplication.sharedApplication.windows[0]
   #   [MBProgressHUD hideHUDForView:window animated:YES];
   # end
 
-  # def hideAllProgresses:(BOOL)animated {
-  # dp "animated={animated ? 'YES' : 'NO'}"
-
-  #   UIWindow *window = GetApp().window;
-  #   [MBProgressHUD hideAllHUDsForView:window animated:animated];
-  # end
+  def hideAllProgresses(animated)
+    window = UIApplication.sharedApplication.windows[0]
+    MBProgressHUD.hideAllHUDsForView(window, animated:animated)
+  end
 
   # - (void)showProgress:(BOOL)animated whileExecutingBlock:(void (^)(MBProgressHUD *progressView))block {
   # ↑を↓にした
