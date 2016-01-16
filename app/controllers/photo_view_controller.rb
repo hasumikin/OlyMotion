@@ -372,7 +372,8 @@ class PhotoViewController < UIViewController
 
   def camera(camera, didUpdateLiveView:data, metadata:metadata)
     # dp "ライブビューの表示を最新の画像で更新します。"
-    image = OLYCameraConvertDataToImage(data, metadata)
+    # metadataにはカメラ本体の回転情報が入っているが、3（天地逆）以外はすべて正対として扱う
+    image = OLYCameraConvertDataToImage(data, {"Orientation" => (metadata['Orientation'] == 3 ? 3 : 1)})
     if !@liveImageView.image && image
       dp "初めての表示更新の場合はフェードインアニメーションを伴います。"
       @liveImageView.alpha = 0.0
