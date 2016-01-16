@@ -116,12 +116,9 @@ class PhotoViewController < UIViewController
       camera = AppCamera.instance
       if camera.connectionType == OLYCameraConnectionTypeWiFi
         touch = touches.anyObject
-        point = touch.locationInView(@liveImageView)
-        # @FIXME ビューファインダー座標系の点座標をライブビュー座標系の点座標にむりやり変換しています
-        scale = @liveImageView.frame.size.width / @liveImageView.image.size.width
-        point2 = CGPointMake(point.x / scale, point.y / scale)
-        point1 = OLYCameraConvertPointOnLiveImageIntoViewfinder(point2, @liveImageView.image)
-        lockAutoFocusPoint(point1)
+        pointOnFrame = touch.locationInView(@liveImageView)
+        pointOnImage = CGPointMake(pointOnFrame.x / @liveImageView.frameImageRatio, pointOnFrame.y / @liveImageView.frameImageRatio)
+        lockAutoFocusPoint(OLYCameraConvertPointOnLiveImageIntoViewfinder(pointOnImage, @liveImageView.image))
       end
     end
   end
@@ -138,18 +135,6 @@ class PhotoViewController < UIViewController
     # ライブビューが表示されていない場合はエラーとします。
     if !@liveImageView || !@liveImageView.image
       App.alert "LiveViewImageIsEmpty"
-      return
-    end
-
-    # タッチした座標が明らかに領域外の時はエラーとします。
-    unless @liveImageView.containsPoint(point)
-      dp "ignore the point"
-      # AF有効枠を表示します。
-      effectiveArea = camera.autoFocusEffectiveArea(nil)
-      @liveImageView.showAutoFocusEffectiveArea(effectiveArea, duration:0.5, animated:true)
-      camera.clearAutoFocusPoint(nil)
-      camera.unlockAutoFocus(nil)
-      @liveImageView.hideFocusFrame(nil)
       return
     end
 
@@ -209,7 +194,6 @@ class PhotoViewController < UIViewController
       # フォーカスロックを自発的に他のビューコントローラへ通知します。
       camera.camera(camera, notifyDidChangeCameraProperty:'CameraPropertyAfLockState', sender:weakSelf)
     }, errorHandler: lambda { |error|
-      dp "error=#{error}"
       UIApplication.sharedApplication.endIgnoringInteractionEvents
       # オートフォーカスまたはフォーカスロックに失敗しました。
       dp "error=#{error}"

@@ -17,6 +17,10 @@ class LiveImageView < UIImageView
     return self
   end
 
+  def frameImageRatio
+    @frameImageRatio ||= self.frame.size.width / self.image.size.width
+  end
+
   def initComponent
     @flashingOpacity = 1.0
     @flashingColor = UIColor.colorWithRed(1.0, green:1.0, blue:1.0, alpha:1.0)
@@ -148,13 +152,6 @@ class LiveImageView < UIImageView
     CATransaction.commit
   end
 
-  def containsPoint(point)
-    dp "touched point=#{point.x}, #{point.y}"
-    CGRectContainsPoint(CGRectMake(0, 0, 1, 1), point)
-    # CGRectContainsPoint(CGRectMake(0, 0, 414*1.5, 414), point)
-    # CGRectContainsPoint(CGRectMake(0, 0, 414*1.5/2, 414/2), point)
-  end
-
   def hideAutoFocusEffectiveArea(animated)
     # [self.autoFocusEffectiveAreaHideTimer invalidate]
     @autoFocusEffectiveAreaHideTimer = nil
@@ -178,9 +175,7 @@ class LiveImageView < UIImageView
     return unless self.image
 
     rectOnImage = OLYCameraConvertRectOnViewfinderIntoLiveImage(rect, self.image)
-    # @FIXME
-    scale = self.frame.size.width / self.image.size.width
-    rectOnFrame = CGRectMake(rectOnImage.origin.x * scale, rectOnImage.origin.y * scale, rectOnImage.size.width * scale, rectOnImage.size.height * scale)
+    rectOnFrame = CGRectMake(rectOnImage.origin.x * frameImageRatio, rectOnImage.origin.y * frameImageRatio, rectOnImage.size.width * frameImageRatio, rectOnImage.size.height * frameImageRatio)
     rectOnImageView = self.convertRectFromImageArea(rectOnFrame)
     unless animated
       CATransaction.begin
@@ -382,7 +377,6 @@ class LiveImageView < UIImageView
   end
 
   def hideFocusFrame(animated)
-    # [@focusFrameHideTimer invalidate]
     @focusFrameHideTimer = nil
 
     unless animated
@@ -402,16 +396,11 @@ class LiveImageView < UIImageView
   def showFocusFrame(rect, status:status, duration:duration, animated:animated)
     dp "rect=#{NSStringFromCGRect(rect)}, status=#{status}, duration=#{duration}"
 
-    # [@focusFrameHideTimer invalidate]
     @focusFrameHideTimer = nil
-
     return unless self.image
 
     rectOnImage = OLYCameraConvertRectOnViewfinderIntoLiveImage(rect, self.image)
-    # @FIXME ここむりやりつじつま合わせている
-    scale = self.frame.size.width / self.image.size.width
-    dp "★scale=#{scale}"
-    rectOnFrame = CGRectMake(rectOnImage.origin.x * scale, rectOnImage.origin.y * scale, rectOnImage.size.width * scale, rectOnImage.size.height * scale)
+    rectOnFrame = CGRectMake(rectOnImage.origin.x * frameImageRatio, rectOnImage.origin.y * frameImageRatio, rectOnImage.size.width * frameImageRatio, rectOnImage.size.height * frameImageRatio)
     rectOnImageView = self.convertRectFromImageArea(rectOnFrame)
     frameColorRef = nil
     frameColorRef = case status
