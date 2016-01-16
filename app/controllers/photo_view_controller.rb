@@ -3,7 +3,7 @@ class PhotoViewController < UIViewController
   include UIViewControllerThreading
   include DebugConcern
 
-  attr_accessor :previousRunMode
+  attr_accessor :previousRunMode, :liveImageView
 
   def viewDidLoad
     super
@@ -32,18 +32,19 @@ class PhotoViewController < UIViewController
     setting = AppSetting.instance
     setting.addObserver(self, forKeyPath:"showLiveImageGrid", options:0, context:'didChangeShowLiveImageGrid:')
 
+    liveViewHeight = Device.screen.height
+    liveViewWidth  = liveViewHeight * 1.5
     @liveImageView = LiveImageView.new
-    self.view.addSubview(@liveImageView)
+    @liveImageView.userInteractionEnabled = true
+    self.view << @liveImageView
     @panelView = PanelView.new
-    self.view.addSubview(@panelView)
-    photoViewHeight = Device.screen.height
-    photoViewWidth  = photoViewHeight * 1.5
+    self.view << @panelView
     Motion::Layout.new do |layout|
       layout.view self.view
       layout.subviews liveImageView: @liveImageView, panelView: @panelView
       layout.vertical "|[liveImageView]|"
       layout.vertical "|[panelView]|"
-      layout.horizontal "|[liveImageView(#{photoViewWidth})][panelView]|"
+      layout.horizontal "|[liveImageView(#{liveViewWidth})][panelView]|"
     end
 
     NSNotificationCenter.defaultCenter.addObserver(self, selector:'close', name:'PhotoViewCloseButtonWasTapped', object:nil)
@@ -108,6 +109,115 @@ class PhotoViewController < UIViewController
   #
   # 以下固有実装
   #
+
+  # 画面タッチ
+  def touchesBegan(touches, withEvent:event)
+    if event.touchesForView(@liveImageView)
+      camera = AppCamera.instance
+      if camera.connectionType == OLYCameraConnectionTypeWiFi
+        touch = touches.anyObject
+        point = touch.locationInView(@liveImageView)
+        # @FIXME ビューファインダー座標系の点座標をライブビュー座標系の点座標にむりやり変換しています
+        scale = @liveImageView.frame.size.width / @liveImageView.image.size.width
+        point2 = CGPointMake(point.x / scale, point.y / scale)
+        point1 = OLYCameraConvertPointOnLiveImageIntoViewfinder(point2, @liveImageView.image)
+        lockAutoFocusPoint(point1)
+      end
+    end
+  end
+
+  # オートフォーカスしてフォーカスロックします。（本アプリはS-AFのみの想定）
+  def lockAutoFocusPoint(point)
+    # 撮影中の時は何もできません。
+    camera = AppCamera.instance
+    if camera.cameraActionStatus != 'AppCameraActionStatusReady'
+      dp "actionStatus=#{actionStatus}"
+      return
+    end
+
+    # ライブビューが表示されていない場合はエラーとします。
+    if !@liveImageView || !@liveImageView.image
+      App.alert "LiveViewImageIsEmpty"
+      return
+    end
+
+    # タッチした座標が明らかに領域外の時はエラーとします。
+    unless @liveImageView.containsPoint(point)
+      dp "ignore the point"
+      # AF有効枠を表示します。
+      effectiveArea = camera.autoFocusEffectiveArea(nil)
+      @liveImageView.showAutoFocusEffectiveArea(effectiveArea, duration:0.5, animated:true)
+      camera.clearAutoFocusPoint(nil)
+      camera.unlockAutoFocus(nil)
+      @liveImageView.hideFocusFrame(nil)
+      return
+    end
+
+    # オートフォーカスする座標を設定します。
+    error = Pointer.new(:object)
+    UIApplication.sharedApplication.beginIgnoringInteractionEvents
+    unless camera.setAutoFocusPoint(point, error:error)
+      UIApplication.sharedApplication.endIgnoringInteractionEvents
+      dp "座標の設定に失敗しました。error=#{error[0]}"
+      # AF有効枠を表示します。
+      effectiveArea = camera.autoFocusEffectiveArea(nil)
+      @liveImageView.showAutoFocusEffectiveArea(effectiveArea, duration:0.5, animated:true)
+      camera.clearAutoFocusPoint(nil)
+      camera.unlockAutoFocus(nil)
+      @liveImageView.hideFocusFrame(nil)
+      return
+    end
+
+    # タッチした座標に暫定的なフォーカス枠を表示します。
+    focusWidth = 0.15    # この値は大雑把なものです。
+    focusHeight = 0.15   # この値は大雑把なものです。
+    imageWidth = @liveImageView.intrinsicContentSize.width
+    imageHeight = @liveImageView.intrinsicContentSize.height
+    focusHeight *= ((imageWidth > imageHeight) ? (imageWidth / imageHeight) : (imageHeight / imageWidth))
+    preFocusFrameRect = CGRectMake(point.x - focusWidth / 2, point.y - focusHeight / 2, focusWidth, focusHeight)
+    @liveImageView.showFocusFrame(preFocusFrameRect, status:'RecordingCameraLiveImageViewStatusRunning', animated:true)
+
+    # オートフォーカスおよびフォーカスロックします。
+    weakSelf = WeakRef.new(self)
+    camera.lockAutoFocus( lambda { |info|
+      dp "info=#{info}"
+      UIApplication.sharedApplication.endIgnoringInteractionEvents
+      # オートフォーカスの結果を取得します。
+      focusResult = info[OLYCameraTakingPictureProgressInfoFocusResultKey]
+      focusRectValue = info[OLYCameraTakingPictureProgressInfoFocusRectKey]
+      dp "focusResult=#{focusResult}, focusRectValue=#{focusRectValue}"
+      if focusResult == "ok" && focusRectValue
+        # オートフォーカスとフォーカスロックに成功しました。結果のフォーカス枠を表示します。
+        postFocusFrameRect = focusRectValue.CGRectValue
+        weakSelf.liveImageView.showFocusFrame(postFocusFrameRect, status:'RecordingCameraLiveImageViewStatusLocked', animated:true)
+      elsif focusResult == "none"
+        # オートフォーカスできませんでした。(オートフォーカス機構が搭載されていません)
+        camera.clearAutoFocusPoint(nil)
+        camera.unlockAutoFocus(nil)
+        weakSelf.liveImageView.hideFocusFrame(true)
+      else
+        # オートフォーカスできませんでした。
+        if camera.focusMode(nil) == AppCameraFocusModeCAF
+          # MARK: コンティニュアスオートフォーカスはこのタイミングで合焦結果を返さないようです。
+          # この後にいつか発生する合焦のデリゲートで残りの表示を行います。
+        else
+          camera.clearAutoFocusPoint(nil)
+          camera.unlockAutoFocus(nil)
+          weakSelf.liveImageView.showFocusFrame(preFocusFrameRect, status:'RecordingCameraLiveImageViewStatusFailed', duration:1.0, animated:true)
+        end
+      end
+      # フォーカスロックを自発的に他のビューコントローラへ通知します。
+      camera.camera(camera, notifyDidChangeCameraProperty:'CameraPropertyAfLockState', sender:weakSelf)
+    }, errorHandler: lambda { |error|
+      dp "error=#{error}"
+      UIApplication.sharedApplication.endIgnoringInteractionEvents
+      # オートフォーカスまたはフォーカスロックに失敗しました。
+      dp "error=#{error}"
+      camera.clearAutoFocusPoint(nil)
+      camera.unlockAutoFocus(nil)
+      weakSelf.liveImageView.hideFocusFrame(true)
+    })
+  end
 
   # ビューコントローラーが画面を表示して活動を開始する時に呼び出されます。
   def didStartActivity

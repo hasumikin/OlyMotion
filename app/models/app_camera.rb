@@ -102,7 +102,7 @@ class AppCamera < OLYCamera
     #   delegates = self.liveViewDelegates
     #   delegates.removeObject(delegate)
     #   self.liveViewDelegates = delegates
-@liveViewDelegates.delete(delegate)
+    @liveViewDelegates.delete(delegate)
     # }
   end
 
@@ -180,4 +180,100 @@ class AppCamera < OLYCamera
     end
   end
 
+  def cameraActionStatus
+    # 撮影タイプ別に検査します。
+    case self.cameraActionType
+    when 'AppCameraActionTypeTakingPictureSingle'
+      # 静止画を単写で撮影中
+      return 'AppCameraActionStatusTakingPictureSingle' if self.takingPicture
+    when 'AppCameraActionTypeTakingPictureSequential'
+      # 静止画を連写で撮影中
+      return 'AppCameraActionStatusTakingPictureSequential' if self.takingPicture
+    when 'AppCameraActionTypeTakingPictureAutoBracketing'
+      # 静止画をオートブラケットで撮影中
+      return 'AppCameraActionStatusTakingPictureAutoBracketing' if self.runningTakingPluralPictures
+    when 'AppCameraActionTypeTakingPictureIntervalTimer'
+      # 静止画をインターバルタイマーで撮影中
+      return 'AppCameraActionStatusTakingPictureIntervalTimer' if self.runningTakingPluralPictures
+    when 'AppCameraActionTypeTakingPictureCombination'
+      # 静止画をオートブラケット＋インターバルタイマーで撮影中
+      return 'AppCameraActionStatusTakingPictureCombination' if self.runningTakingPluralPictures
+    when 'AppCameraActionTypeRecordingVideo'
+      # 動画を撮影中
+      return 'AppCameraActionStatusRecordingVideo' if self.recordingVideo
+    when OLYCameraActionTypeUnknown
+    else
+      # ありえません。
+    end
+    # 撮影していません。
+    'AppCameraActionStatusReady'
+  end
+
+  def cameraActionType
+    # 撮影モード/ドライブモードの種別を検査します。
+    case actionType
+    when OLYCameraActionTypeSingle
+      # 静止画を単写で撮影。次の検査へ
+    when OLYCameraActionTypeSequential
+      # 静止画を連写で撮影
+      return 'AppCameraActionTypeTakingPictureSequential'
+    when OLYCameraActionTypeMovie
+      # 動画を撮影
+      return 'AppCameraActionTypeRecordingVideo'
+    when OLYCameraActionTypeUnknown
+    else
+      # ありえません。
+      return 'AppCameraActionTypeUnknown'
+    end
+
+    # # オートブラケット撮影が有効か検査します。
+    autoBracketingModeEnabled = false
+    # if self.autoBracketingMode != 'AppCameraAutoBracketingModeDisabled'
+    #   error = Pointer.new(:object)
+    #   takemode = cameraPropertyValue(CameraPropertyTakemode, error:error)
+    #   if takemode.isEqualToString(CameraPropertyValueTakemodeP) ||
+    #     takemode.isEqualToString(CameraPropertyValueTakemodeA) ||
+    #     takemode.isEqualToString(CameraPropertyValueTakemodeS) ||
+    #     takemode.isEqualToString(CameraPropertyValueTakemodeM]) {
+    #     autoBracketingModeEnabled = true
+    #   }
+    # }
+
+    # # インターバルタイマー撮影が有効か検査します。
+    intervalTimerModeEnabled = false
+    # if (self.intervalTimerMode != AppCameraIntervalTimerModeDisabled) {
+    #   NSError *error = nil;
+    #   NSString *takemode = [super cameraPropertyValue:CameraPropertyTakemode error:&error];
+    #   if ([takemode isEqualToString:CameraPropertyValueTakemodeIAuto] ||
+    #     [takemode isEqualToString:CameraPropertyValueTakemodeP] ||
+    #     [takemode isEqualToString:CameraPropertyValueTakemodeA] ||
+    #     [takemode isEqualToString:CameraPropertyValueTakemodeS] ||
+    #     [takemode isEqualToString:CameraPropertyValueTakemodeM] ||
+    #     [takemode isEqualToString:CameraPropertyValueTakemodeArt]) {
+    #     intervalTimerModeEnabled = true
+    #   }
+    # }
+
+    # 撮影モードを総合的に判断します。
+    if autoBracketingModeEnabled && intervalTimerModeEnabled
+      return 'AppCameraActionTypeTakingPictureCombination'
+    elsif autoBracketingModeEnabled
+      return 'AppCameraActionTypeTakingPictureAutoBracketing'
+    elsif intervalTimerModeEnabled
+      return 'AppCameraActionTypeTakingPictureIntervalTimer'
+    end
+    return 'AppCameraActionTypeTakingPictureSingle'
+  end
+
+  def camera(camera, notifyDidChangeCameraProperty:name, sender:sender)
+    # for (id<OLYCameraPropertyDelegate> delegate in self.cameraPropertyDelegates) {
+    @cameraPropertyDelegates.each do |delegate|
+      next if delegate == sender
+      if delegate.respondsToSelector('camera:didChangeCameraProperty:')
+        delegate.camera(camera, didChangeCameraProperty:name)
+      end
+    end
+  end
+
 end
+
