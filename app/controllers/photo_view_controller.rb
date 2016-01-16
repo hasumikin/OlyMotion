@@ -3,7 +3,7 @@ class PhotoViewController < UIViewController
   include UIViewControllerThreading
   include DebugConcern
 
-  attr_accessor :previousRunMode
+  attr_accessor :previousRunMode, :liveImageView
 
   def viewDidLoad
     super
@@ -32,19 +32,19 @@ class PhotoViewController < UIViewController
     setting = AppSetting.instance
     setting.addObserver(self, forKeyPath:"showLiveImageGrid", options:0, context:'didChangeShowLiveImageGrid:')
 
+    liveViewHeight = Device.screen.height
+    liveViewWidth  = liveViewHeight * 1.5
     @liveImageView = LiveImageView.new
     @liveImageView.userInteractionEnabled = true
     self.view << @liveImageView
     @panelView = PanelView.new
     self.view << @panelView
-    photoViewHeight = Device.screen.height
-    photoViewWidth  = photoViewHeight * 1.5
     Motion::Layout.new do |layout|
       layout.view self.view
       layout.subviews liveImageView: @liveImageView, panelView: @panelView
       layout.vertical "|[liveImageView]|"
       layout.vertical "|[panelView]|"
-      layout.horizontal "|[liveImageView(#{photoViewWidth})][panelView]|"
+      layout.horizontal "|[liveImageView(#{liveViewWidth})][panelView]|"
     end
 
     NSNotificationCenter.defaultCenter.addObserver(self, selector:'close', name:'PhotoViewCloseButtonWasTapped', object:nil)
@@ -110,19 +110,23 @@ class PhotoViewController < UIViewController
   # 以下固有実装
   #
 
-  # オートフォーカスします（本アプリはS-AFのみの想定）
+  # 画面タッチ
   def touchesBegan(touches, withEvent:event)
     if event.touchesForView(@liveImageView)
       camera = AppCamera.instance
       if camera.connectionType == OLYCameraConnectionTypeWiFi
         touch = touches.anyObject
         point = touch.locationInView(@liveImageView)
-        lockAutoFocusPoint(point)
+        # @FIXME ビューファインダー座標系の点座標をライブビュー座標系の点座標にむりやり変換しています
+        scale = @liveImageView.frame.size.width / @liveImageView.image.size.width
+        point2 = CGPointMake(point.x / scale, point.y / scale)
+        point1 = OLYCameraConvertPointOnLiveImageIntoViewfinder(point2, @liveImageView.image)
+        lockAutoFocusPoint(point1)
       end
     end
   end
 
-  # オートフォーカスしてフォーカスロックします。
+  # オートフォーカスしてフォーカスロックします。（本アプリはS-AFのみの想定）
   def lockAutoFocusPoint(point)
     # 撮影中の時は何もできません。
     camera = AppCamera.instance
@@ -139,13 +143,13 @@ class PhotoViewController < UIViewController
 
     # タッチした座標が明らかに領域外の時はエラーとします。
     unless @liveImageView.containsPoint(point)
-      dp "ignore the point: point=#{point}"
+      dp "ignore the point"
       # AF有効枠を表示します。
       effectiveArea = camera.autoFocusEffectiveArea(nil)
       @liveImageView.showAutoFocusEffectiveArea(effectiveArea, duration:0.5, animated:true)
       camera.clearAutoFocusPoint(nil)
       camera.unlockAutoFocus(nil)
-      @liveImageView.hideFocusFrame
+      @liveImageView.hideFocusFrame(nil)
       return
     end
 
@@ -154,13 +158,13 @@ class PhotoViewController < UIViewController
     UIApplication.sharedApplication.beginIgnoringInteractionEvents
     unless camera.setAutoFocusPoint(point, error:error)
       UIApplication.sharedApplication.endIgnoringInteractionEvents
-      dp "座標の設定に失敗しました。error=#{error}"
+      dp "座標の設定に失敗しました。error=#{error[0]}"
       # AF有効枠を表示します。
       effectiveArea = camera.autoFocusEffectiveArea(nil)
       @liveImageView.showAutoFocusEffectiveArea(effectiveArea, duration:0.5, animated:true)
       camera.clearAutoFocusPoint(nil)
       camera.unlockAutoFocus(nil)
-      @liveImageView.hideFocusFrame
+      @liveImageView.hideFocusFrame(nil)
       return
     end
 
@@ -171,7 +175,7 @@ class PhotoViewController < UIViewController
     imageHeight = @liveImageView.intrinsicContentSize.height
     focusHeight *= ((imageWidth > imageHeight) ? (imageWidth / imageHeight) : (imageHeight / imageWidth))
     preFocusFrameRect = CGRectMake(point.x - focusWidth / 2, point.y - focusHeight / 2, focusWidth, focusHeight)
-    @liveImageView.showFocusFrame(preFocusFrameRect, status:RecordingCameraLiveImageViewStatusRunning, animated:true)
+    @liveImageView.showFocusFrame(preFocusFrameRect, status:'RecordingCameraLiveImageViewStatusRunning', animated:true)
 
     # オートフォーカスおよびフォーカスロックします。
     weakSelf = WeakRef.new(self)
@@ -185,7 +189,7 @@ class PhotoViewController < UIViewController
       if focusResult == "ok" && focusRectValue
         # オートフォーカスとフォーカスロックに成功しました。結果のフォーカス枠を表示します。
         postFocusFrameRect = focusRectValue.CGRectValue
-        weakSelf.liveImageView.showFocusFrame(postFocusFrameRect, status:RecordingCameraLiveImageViewStatusLocked, animated:true)
+        weakSelf.liveImageView.showFocusFrame(postFocusFrameRect, status:'RecordingCameraLiveImageViewStatusLocked', animated:true)
       elsif focusResult == "none"
         # オートフォーカスできませんでした。(オートフォーカス機構が搭載されていません)
         camera.clearAutoFocusPoint(nil)
@@ -199,7 +203,7 @@ class PhotoViewController < UIViewController
         else
           camera.clearAutoFocusPoint(nil)
           camera.unlockAutoFocus(nil)
-          weakSelf.liveImageView.showFocusFrame(preFocusFrameRect, status:RecordingCameraLiveImageViewStatusFailed, duration:1.0, animated:true)
+          weakSelf.liveImageView.showFocusFrame(preFocusFrameRect, status:'RecordingCameraLiveImageViewStatusFailed', duration:1.0, animated:true)
         end
       end
       # フォーカスロックを自発的に他のビューコントローラへ通知します。

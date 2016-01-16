@@ -102,7 +102,7 @@ class AppCamera < OLYCamera
     #   delegates = self.liveViewDelegates
     #   delegates.removeObject(delegate)
     #   self.liveViewDelegates = delegates
-@liveViewDelegates.delete(delegate)
+    @liveViewDelegates.delete(delegate)
     # }
   end
 
@@ -263,6 +263,16 @@ class AppCamera < OLYCamera
       return 'AppCameraActionTypeTakingPictureIntervalTimer'
     end
     return 'AppCameraActionTypeTakingPictureSingle'
+  end
+
+  def camera(camera, notifyDidChangeCameraProperty:name, sender:sender)
+    # for (id<OLYCameraPropertyDelegate> delegate in self.cameraPropertyDelegates) {
+    @cameraPropertyDelegates.each do |delegate|
+      next if delegate == sender
+      if delegate.respondsToSelector('camera:didChangeCameraProperty:')
+        delegate.camera(camera, didChangeCameraProperty:name)
+      end
+    end
   end
 
 end
