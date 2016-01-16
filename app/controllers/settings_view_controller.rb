@@ -376,7 +376,7 @@ class SettingsViewController < UIViewController
         Dispatch::Queue.main.async {
           weakSelf.settingsTable.showWifiSettingCell.detailTextLabel.text = "ConnectingWifi"
         }
-        unless weakSelf.wifiConnector.waitForConnected(20.0)
+        unless weakSelf.wifiConnector.waitForConnected(10.0)
           # Connecting... を元に戻します。
           weakSelf.updateSettingsTable(nil)
           # Wi-Fi接続が有効になりませんでした。
@@ -512,7 +512,7 @@ class SettingsViewController < UIViewController
         Dispatch::Queue.main.async {
           weakSelf.settingsTable.showWifiSettingCell.detailTextLabel.text = "DisconnectingWifi"
         }
-        if weakSelf.wifiConnector.waitForDisconnected(20.0)
+        if weakSelf.wifiConnector.waitForDisconnected(10.0)
           dp "エラーを無視して続行します。"
         end
       end
