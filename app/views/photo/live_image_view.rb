@@ -17,6 +17,10 @@ class LiveImageView < UIImageView
     return self
   end
 
+  def frameImageRatio
+    @frameImageRatio ||= self.frame.size.width / self.image.size.width
+  end
+
   def initComponent
     @flashingOpacity = 1.0
     @flashingColor = UIColor.colorWithRed(1.0, green:1.0, blue:1.0, alpha:1.0)
@@ -147,5 +151,312 @@ class LiveImageView < UIImageView
 
     CATransaction.commit
   end
+
+  def hideAutoFocusEffectiveArea(animated)
+    # [self.autoFocusEffectiveAreaHideTimer invalidate]
+    @autoFocusEffectiveAreaHideTimer = nil
+
+    unless animated
+      CATransaction.begin
+      CATransaction.setValue(KCFBooleanTrue, forKey:KCATransactionDisableActions)
+    end
+    @autoFocusEffectiveAreaLayer.opacity = 0.0
+    CATransaction.commit unless animated
+
+    @showingAutoFocusEffectiveArea = false
+  end
+
+  def showAutoFocusEffectiveArea(rect, duration:duration, animated:animated)
+    dp "showAutoFocusEffectiveArea:rect=#{NSStringFromCGRect(rect)}, duration=#{duration}"
+
+    # @autoFocusEffectiveAreaHideTimer.invalidate
+    @autoFocusEffectiveAreaHideTimer = nil
+
+    return unless self.image
+
+    rectOnImage = OLYCameraConvertRectOnViewfinderIntoLiveImage(rect, self.image)
+    rectOnFrame = CGRectMake(rectOnImage.origin.x * frameImageRatio, rectOnImage.origin.y * frameImageRatio, rectOnImage.size.width * frameImageRatio, rectOnImage.size.height * frameImageRatio)
+    rectOnImageView = self.convertRectFromImageArea(rectOnFrame)
+    unless animated
+      CATransaction.begin
+      CATransaction.setValue(KCFBooleanTrue, forKey:KCATransactionDisableActions)
+    end
+    @autoFocusEffectiveAreaRect = rect
+    @autoFocusEffectiveAreaLayer.borderColor = @autoFocusEffectiveAreaBorderColor.CGColor
+    @autoFocusEffectiveAreaLayer.frame = rectOnImageView
+    @autoFocusEffectiveAreaLayer.opacity = @autoFocusEffectiveAreaBorderOpacity
+    CATransaction.commit unless animated
+
+    @showingAutoFocusEffectiveArea = true
+
+    if duration > 0
+      @autoFocusEffectiveAreaHideTimer = NSTimer.scheduledTimerWithTimeInterval(duration, target:self, selector:'didFireAutoFocusEffectiveAreaHideTimer:', userInfo:nil, repeats:false)
+    end
+  end
+
+  def didFireFocusFrameHideTimer(timer)
+    self.hideFocusFrame(true)
+  end
+
+  def didFireExposureFrameHideTimer(timer)
+    self.hideExposureFrame(true)
+  end
+
+  def didFireAutoFocusEffectiveAreaHideTimer(timer)
+    self.hideAutoFocusEffectiveArea(true)
+  end
+
+  def didFireAutoExposureEffectiveAreaHideTimer(timer)
+    self.hideAutoExposureEffectiveArea(true)
+  end
+
+  def convertRectFromImageArea(rect)
+    dp "convertRectFromImageArea:rect=#{NSStringFromCGRect(rect)}"
+
+    return CGRectZero unless self.image
+
+    imageTopLeft = rect.origin
+    imageBottomRight = CGPointMake(CGRectGetMaxX(rect), CGRectGetMaxY(rect))
+
+    viewTopLeft = self.convertPointFromImageArea(imageTopLeft)
+    viewBottomRight = self.convertPointFromImageArea(imageBottomRight)
+
+    viewWidth = (viewBottomRight.x - viewTopLeft.x).abs
+    viewHeight = (viewBottomRight.y - viewTopLeft.y).abs
+    viewRect = CGRectMake(viewTopLeft.x, viewTopLeft.y, viewWidth, viewHeight)
+
+    viewRect
+  end
+
+  def convertPointFromImageArea(point)
+    dp "convertPointFromImageArea:point=#{NSStringFromCGPoint(point)}"
+
+    return CGPointZero unless self.image
+
+    viewPoint = point
+    imageSize = self.image.size
+    viewSize  = self.bounds.size
+    ratioX = viewSize.width / imageSize.width
+    ratioY = viewSize.height / imageSize.height
+    scale = 0.0
+
+    case self.contentMode
+    when UIViewContentModeScaleToFill  # go to next label.
+    when UIViewContentModeRedraw
+      viewPoint.x *= ratioX
+      viewPoint.y *= ratioY
+    when UIViewContentModeScaleAspectFit
+      scale = MIN(ratioX, ratioY)
+      viewPoint.x *= scale
+      viewPoint.y *= scale
+      viewPoint.x += (viewSize.width  - imageSize.width  * scale) / 2.0
+      viewPoint.y += (viewSize.height - imageSize.height * scale) / 2.0
+    when UIViewContentModeScaleAspectFill
+      scale = MAX(ratioX, ratioY)
+      viewPoint.x *= scale
+      viewPoint.y *= scale
+      viewPoint.x += (viewSize.width  - imageSize.width  * scale) / 2.0
+      viewPoint.y += (viewSize.height - imageSize.height * scale) / 2.0
+    when UIViewContentModeCenter
+      viewPoint.x += viewSize.width / 2.0  - imageSize.width  / 2.0
+      viewPoint.y += viewSize.height / 2.0 - imageSize.height / 2.0
+    when UIViewContentModeTop
+      viewPoint.x += viewSize.width / 2.0 - imageSize.width / 2.0
+    when UIViewContentModeBottom
+      viewPoint.x += viewSize.width / 2.0 - imageSize.width / 2.0
+      viewPoint.y += viewSize.height - imageSize.height
+    when UIViewContentModeLeft
+      viewPoint.y += viewSize.height / 2.0 - imageSize.height / 2.0
+    when UIViewContentModeRight
+      viewPoint.x += viewSize.width - imageSize.width
+      viewPoint.y += viewSize.height / 2.0 - imageSize.height / 2.0
+    when UIViewContentModeTopRight
+      viewPoint.x += viewSize.width - imageSize.width
+    when UIViewContentModeBottomLeft
+      viewPoint.y += viewSize.height - imageSize.height
+    when UIViewContentModeBottomRight
+      viewPoint.x += viewSize.width  - imageSize.width
+      viewPoint.y += viewSize.height - imageSize.height
+    when UIViewContentModeTopLeft  # go to next label.
+    else
+    end
+
+    viewPoint
+  end
+
+  def convertPointFromViewArea(point)
+    dp "convertPointFromViewArea:point=#{NSStringFromCGPoint(point)}"
+
+    return CGPointZero unless self.image
+
+    imagePoint = point
+    imageSize = self.image.size
+    viewSize  = self.bounds.size
+    ratioX = viewSize.width / imageSize.width
+    ratioY = viewSize.height / imageSize.height
+    scale = 0.0
+
+    case self.contentMode
+    when UIViewContentModeScaleToFill  # go to next label.
+    when UIViewContentModeRedraw
+      imagePoint.x /= ratioX
+      imagePoint.y /= ratioY
+    when UIViewContentModeScaleAspectFit
+      scale = MIN(ratioX, ratioY)
+      imagePoint.x -= (viewSize.width  - imageSize.width  * scale) / 2.0
+      imagePoint.y -= (viewSize.height - imageSize.height * scale) / 2.0
+      imagePoint.x /= scale
+      imagePoint.y /= scale
+    when UIViewContentModeScaleAspectFill
+      scale = MAX(ratioX, ratioY)
+      imagePoint.x -= (viewSize.width  - imageSize.width  * scale) / 2.0
+      imagePoint.y -= (viewSize.height - imageSize.height * scale) / 2.0
+      imagePoint.x /= scale
+      imagePoint.y /= scale
+    when UIViewContentModeCenter
+      imagePoint.x -= (viewSize.width - imageSize.width)  / 2.0
+      imagePoint.y -= (viewSize.height - imageSize.height) / 2.0
+    when UIViewContentModeTop
+      imagePoint.x -= (viewSize.width - imageSize.width)  / 2.0
+    when UIViewContentModeBottom
+      imagePoint.x -= (viewSize.width - imageSize.width)  / 2.0
+      imagePoint.y -= (viewSize.height - imageSize.height)
+    when UIViewContentModeLeft
+      imagePoint.y -= (viewSize.height - imageSize.height) / 2.0
+    when UIViewContentModeRight
+      imagePoint.x -= (viewSize.width - imageSize.width)
+      imagePoint.y -= (viewSize.height - imageSize.height) / 2.0
+    when UIViewContentModeTopRight
+      imagePoint.x -= (viewSize.width - imageSize.width)
+    when UIViewContentModeBottomLeft
+      imagePoint.y -= (viewSize.height - imageSize.height)
+    when UIViewContentModeBottomRight
+      imagePoint.x -= (viewSize.width - imageSize.width)
+      imagePoint.y -= (viewSize.height - imageSize.height)
+    when UIViewContentModeTopLeft    # go to next label.
+    else
+    end
+
+    imagePoint
+  end
+
+  def convertRectFromImageArea(rect)
+    dp "rect=#{NSStringFromCGRect(rect)}"
+
+    return CGRectZero unless self.image
+
+    imageTopLeft = rect.origin
+    imageBottomRight = CGPointMake(CGRectGetMaxX(rect), CGRectGetMaxY(rect))
+
+    viewTopLeft = self.convertPointFromImageArea(imageTopLeft)
+    viewBottomRight = self.convertPointFromImageArea(imageBottomRight)
+
+    viewWidth = (viewBottomRight.x - viewTopLeft.x).abs
+    viewHeight = (viewBottomRight.y - viewTopLeft.y).abs
+    viewRect = CGRectMake(viewTopLeft.x, viewTopLeft.y, viewWidth, viewHeight)
+
+    viewRect
+  end
+
+  def convertRectFromViewArea(rect)
+    dp "rect=#{NSStringFromCGRect(rect)}"
+
+    return CGRectZero unless self.image
+
+    viewTopLeft = rect.origin
+    viewBottomRight = CGPointMake(CGRectGetMaxX(rect), CGRectGetMaxY(rect))
+
+    imageTopLeft = self.convertPointFromViewArea(viewTopLeft)
+    imageBottomRight = self.convertPointFromViewArea(viewBottomRight)
+
+    imageWidth = (imageBottomRight.x - imageTopLeft.x).abs
+    imageHeight = (imageBottomRight.y - imageTopLeft.y).abs
+    imageRect = CGRectMake(imageTopLeft.x, imageTopLeft.y, imageWidth, imageHeight)
+
+    imageRect
+  end
+
+  def hideFocusFrame(animated)
+    @focusFrameHideTimer = nil
+
+    unless animated
+      CATransaction.begin
+      CATransaction.setValue(KCFBooleanTrue, forKey:KCATransactionDisableActions)
+    end
+    @focusFrameLayer.opacity = 0.0
+    @showingFocusFrame = false
+    CATransaction.commit unless animated
+  end
+
+  def showFocusFrame(rect, status:status, animated:animated)
+    dp "rect=#{NSStringFromCGRect(rect)}, status=#{status}"
+    self.showFocusFrame(rect, status:status, duration:0.0, animated:animated)
+  end
+
+  def showFocusFrame(rect, status:status, duration:duration, animated:animated)
+    dp "rect=#{NSStringFromCGRect(rect)}, status=#{status}, duration=#{duration}"
+
+    @focusFrameHideTimer = nil
+    return unless self.image
+
+    rectOnImage = OLYCameraConvertRectOnViewfinderIntoLiveImage(rect, self.image)
+    rectOnFrame = CGRectMake(rectOnImage.origin.x * frameImageRatio, rectOnImage.origin.y * frameImageRatio, rectOnImage.size.width * frameImageRatio, rectOnImage.size.height * frameImageRatio)
+    rectOnImageView = self.convertRectFromImageArea(rectOnFrame)
+    frameColorRef = nil
+    frameColorRef = case status
+    when 'RecordingCameraLiveImageViewStatusRunning'
+      @focusFrameBorderColorStatusRunning.CGColor
+    when 'RecordingCameraLiveImageViewStatusLocked'
+      @focusFrameBorderColorStatusLocked.CGColor
+    when 'RecordingCameraLiveImageViewStatusFailed'
+      @focusFrameBorderColorStatusFailed.CGColor
+    end
+    unless animated
+      CATransaction.begin
+      CATransaction.setValue(KCFBooleanTrue, forKey:KCATransactionDisableActions)
+    end
+    @focusFrameRect = rect
+    @focusFrameLayer.borderColor = frameColorRef
+    @focusFrameLayer.frame = rectOnImageView
+    @focusFrameLayer.opacity = @focusFrameBorderOpacity
+    CATransaction.commit unless animated
+
+    @focusFrameStatus = status
+    @showingFocusFrame = true
+
+    if duration > 0
+      @focusFrameHideTimer = NSTimer.scheduledTimerWithTimeInterval(duration, target:self, selector:'didFireFocusFrameHideTimer:', userInfo:nil, repeats:false)
+    end
+  end
+
+  def changeFocusFrameStatus(status, animated:animated)
+    dp "status=#{status}"
+
+    return unless self.image
+
+    frameColorRef = nil
+    case status
+    when 'RecordingCameraLiveImageViewStatusRunning'
+      frameColorRef = @focusFrameBorderColorStatusRunning.CGColor
+    when 'RecordingCameraLiveImageViewStatusLocked'
+      frameColorRef = @focusFrameBorderColorStatusLocked.CGColor
+    when 'RecordingCameraLiveImageViewStatusFailed'
+      frameColorRef = @focusFrameBorderColorStatusFailed.CGColor
+    end
+    unless animated
+      CATransaction.begin
+      CATransaction.setValue(KCFBooleanTrue, forKey:KCATransactionDisableActions)
+    end
+    @focusFrameLayer.borderColor = frameColorRef
+    CATransaction.commit unless animated
+
+    @focusFrameStatus = status
+  end
+
+  def showFocusFrame(rect, status:status, animated:animated)
+    dp "rect=#{NSStringFromCGRect(rect)}, status=#{status}"
+    self.showFocusFrame(rect, status:status, duration:0.0, animated:animated)
+  end
+
 
 end

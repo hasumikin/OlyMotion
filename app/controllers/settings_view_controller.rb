@@ -116,9 +116,8 @@ class SettingsViewController < UIViewController
     # Wi-Fiの接続監視を停止
     @wifiConnector.stopMonitoring
 
-    # @TODO
     # // カメラ操作の子画面を表示している場合は、この画面に戻します。
-    # [self backToConnectionView:NO];
+    backToConnectionView(false)
   end
 
   # アプリケーションがバックグラウンドに入る時に呼び出されます。
@@ -222,7 +221,7 @@ class SettingsViewController < UIViewController
     updateSettingsTable(nil)
 
     # カメラ操作の子画面を表示している場合は、この画面に戻します。
-    # self.backToConnectionView(true)
+    backToConnectionView(true)
   end
 
   def viewWillAppear(animated)
@@ -377,7 +376,7 @@ class SettingsViewController < UIViewController
         Dispatch::Queue.main.async {
           weakSelf.settingsTable.showWifiSettingCell.detailTextLabel.text = "ConnectingWifi"
         }
-        unless weakSelf.wifiConnector.waitForConnected(20.0)
+        unless weakSelf.wifiConnector.waitForConnected(10.0)
           # Connecting... を元に戻します。
           weakSelf.updateSettingsTable(nil)
           # Wi-Fi接続が有効になりませんでした。
@@ -513,7 +512,7 @@ class SettingsViewController < UIViewController
         Dispatch::Queue.main.async {
           weakSelf.settingsTable.showWifiSettingCell.detailTextLabel.text = "DisconnectingWifi"
         }
-        if weakSelf.wifiConnector.waitForDisconnected(20.0)
+        if weakSelf.wifiConnector.waitForDisconnected(10.0)
           dp "エラーを無視して続行します。"
         end
       end
@@ -595,6 +594,42 @@ class SettingsViewController < UIViewController
     Dispatch::Queue.main.async {
       App.alert(title, message: message)
     }
+  end
+
+  # カメラ操作の子画面を表示している場合は、この画面に戻します。
+  def backToConnectionView(animated)
+    # この画面が一番上に表示されている場合は画面遷移は必要ありません。
+    return if self.navigationController.topViewController == self
+
+    # 画面のスタックに対象となるカメラ操作の子画面がいるかどうか検索します。
+    requirePopToConnectionView = false
+    targetRestorationIdentifiers = [
+      "PhotoViewController",
+      "PlaybackViewController",
+      "SystemViewController"
+    ]
+    requirePopToConnectionView = self.navigationController.viewControllers.any? do |controller|
+      targetRestorationIdentifiers.include?(controller.restorationIdentifier)
+    end
+    return unless requirePopToConnectionView
+
+    # カメラ操作の子画面を含んでいた場合は、この画面に戻します。
+    if animated
+      # 複数の画面遷移アニメーションが同時開始しないように順番を制御する必要がありそう。
+      # 前画面に戻るアニメーションがありの場合は、ここに到達するまでにメインスレッドのディスパッチキューに溜まって
+      # しまっていた処理を全て実行してから、この画面に戻すようにします。
+      # この対策をしておかないと、前画面に戻るアニメーションとアラートビューの表示アニメーションの開始タイミングが
+      # ぶつかったりした時に、なぜかナビゲーションビューの子画面が真っ黒になったりして色々と怪しいです。
+      # 原因をきちんと調査しきれなかったので、このバージョンではひとまずここまでです。
+      weakSelf = WeakRef.new(self)
+      Dispatch::Queue.main.async {
+        weakSelf.hideAllProgresses(true)
+        weakSelf.navigationController.popToViewController(weakSelf, animated:true)
+      }
+    else
+      self.hideAllProgresses(false)
+      self.navigationController.popToViewController(self, animated:false)
+    end
   end
 
 end
