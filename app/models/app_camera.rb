@@ -275,5 +275,81 @@ class AppCamera < OLYCamera
     end
   end
 
+  #
+  # 拡大ビュー
+  #
+  def startMagnifyingLiveView(scale, error:error)
+    dp "scale=#{scale}"
+    # ライブビュー拡大が成功したらその時の倍率と表示範囲を保持しておきます。
+    return false unless super(scale, error:error)
+    area = magnifyingLiveViewArea(error)
+    return false if !area[OLYCameraMagnifyingOverallViewSizeKey] || !area[OLYCameraMagnifyingDisplayAreaRectKey]
+    overallViewSize = area[OLYCameraMagnifyingOverallViewSizeKey]# CGSizeValue];
+    displayAreaRect = area[OLYCameraMagnifyingDisplayAreaRectKey]# CGRectValue];
+    # MARK: 設定する順序がシビア。今このアプリでは、magnifyingLiveViewScaleをKVOしているので、それを一番最後に変更します。
+    @magnifyingOverallViewSize = overallViewSize
+    @magnifyingDisplayAreaRect = displayAreaRect
+    @magnifyingLiveViewScale = scale
+    return true
+  end
+
+  def startMagnifyingLiveViewAtPoint(point, scale:scale, error:error)
+    dp "scale=#{scale}"
+    # ライブビュー拡大が成功したらその時の倍率と表示範囲を保持しておきます。
+    return false unless super(point, scale:scale, error:error)
+    area = magnifyingLiveViewArea(error)
+    return false if !area[OLYCameraMagnifyingOverallViewSizeKey] || !area[OLYCameraMagnifyingDisplayAreaRectKey]
+    overallViewSize = area[OLYCameraMagnifyingOverallViewSizeKey]# CGSizeValue];
+    displayAreaRect = area[OLYCameraMagnifyingDisplayAreaRectKey]# CGRectValue];
+    # MARK: 設定する順序がシビア。今このアプリでは、magnifyingLiveViewScaleをKVOしているので、それを一番最後に変更します。
+    @magnifyingOverallViewSize = overallViewSize
+    @magnifyingDisplayAreaRect = displayAreaRect
+    @magnifyingLiveViewScale = scale
+    return true
+  end
+
+  def changeMagnifyingLiveViewScale(scale, error:error)
+    dp "scale=#{scale}"
+    # ライブビュー拡大を開始していない場合は変更されたことにします。
+    unless @magnifyingLiveView
+      @magnifyingLiveViewScale = scale
+      return true
+    end
+    # ライブビュー拡大の倍率変更が成功したらその時の倍率と表示範囲を保持しておきます。
+    return false unless super(scale, error:error)
+    area = magnifyingLiveViewArea(error)
+    return false if !area[OLYCameraMagnifyingOverallViewSizeKey] || !area[OLYCameraMagnifyingDisplayAreaRectKey]
+    overallViewSize = area[OLYCameraMagnifyingOverallViewSizeKey]# CGSizeValue];
+    displayAreaRect = area[OLYCameraMagnifyingDisplayAreaRectKey]# CGRectValue];
+    # MARK: 設定する順序がシビア。今このアプリでは、magnifyingLiveViewScaleをKVOしているので、それを一番最後に変更します。
+    @magnifyingOverallViewSize = overallViewSize
+    @magnifyingDisplayAreaRect = displayAreaRect
+    @magnifyingLiveViewScale = scale
+    return true
+  end
+
+  def changeMagnifyingLiveViewArea(direction, error:error)
+    dp "direction=#{direction}"
+    # ライブビュー拡大の表示範囲移動が成功したらその時の表示範囲を保持しておきます。
+    return false unless super(direction, error:error)
+    area = magnifyingLiveViewArea(error)
+    return false if !area[OLYCameraMagnifyingOverallViewSizeKey] || !area[OLYCameraMagnifyingDisplayAreaRectKey]
+    overallViewSize = area[OLYCameraMagnifyingOverallViewSizeKey]# CGSizeValue];
+    displayAreaRect = area[OLYCameraMagnifyingDisplayAreaRectKey]# CGRectValue];
+    # MARK: 設定する順序がシビア。今このアプリでは、magnifyingLiveViewScaleをKVOしているので、それを一番最後に変更します。
+    @magnifyingOverallViewSize = overallViewSize
+    @magnifyingDisplayAreaRect = displayAreaRect
+    return true
+  end
+
+  def stopMagnifyingLiveView(error)
+    # ライブビュー拡大を止めます。
+    return false unless super(error)
+    # ライブビュー拡大の表示範囲を初期化しておきます。
+    @magnifyingOverallViewSize = CGSizeZero
+    @magnifyingDisplayAreaRect = CGRectZero
+    return true
+  end
+
 end
 

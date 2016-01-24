@@ -31,6 +31,10 @@ class PhotoViewController < UIViewController
     end
 
     NSNotificationCenter.defaultCenter.addObserver(self, selector:'close', name:'PhotoViewCloseButtonWasTapped', object:nil)
+    NSNotificationCenter.defaultCenter.addObserver(self, selector:'toggleFocusMode', name:'ToggleFocusModeButtonWasTapped', object:nil)
+    NSNotificationCenter.defaultCenter.addObserver(self, selector:'toggleWhiteBalance', name:'ToggleWhiteBalanceButtonWasTapped', object:nil)
+    NSNotificationCenter.defaultCenter.addObserver(self, selector:'toggleTakeMode', name:'ToggleTakeModeButtonWasTapped', object:nil)
+    NSNotificationCenter.defaultCenter.addObserver(self, selector:'toggleAeLockState', name:'ToggleAeLockStateButtonWasTapped', object:nil)
 
     # 監視するカメラプロパティ名とそれに紐づいた対応処理(メソッド名)を対とする辞書を用意して、
     # Objective-CのKVOチックに、カメラプロパティに変化があったらその個別処理を呼び出せるようにしてみます。
@@ -84,6 +88,10 @@ class PhotoViewController < UIViewController
     super(animated)
     navigationController.setNavigationBarHidden(false, animated:animated)
     NSNotificationCenter.defaultCenter.removeObserver(self, name:'PhotoViewCloseButtonWasTapped', object:nil)
+    NSNotificationCenter.defaultCenter.removeObserver(self, name:'ToggleFocusModeButtonWasTapped', object:nil)
+    NSNotificationCenter.defaultCenter.removeObserver(self, name:'ToggleWhiteBalanceButtonWasTapped', object:nil)
+    NSNotificationCenter.defaultCenter.removeObserver(self, name:'ToggleTakeModeButtonWasTapped', object:nil)
+    NSNotificationCenter.defaultCenter.removeObserver(self, name:'ToggleAeLockStateButtonWasTapped', object:nil)
   end
 
   def viewDidDisappear(animated)
@@ -435,6 +443,46 @@ class PhotoViewController < UIViewController
 
   def didChangeActualIsoSensitivity
     @panelView.updateIsoSensitivityLabel
+  end
+
+  def toggleFocusMode
+    toggleFunction(:toggleFocusModeButton)
+  end
+
+  def toggleWhiteBalance
+    toggleFunction(:toggleWhiteBalanceButton)
+  end
+
+  def toggleTakeMode
+    toggleFunction(:toggleTakeModeButton)
+  end
+
+  def toggleAeLockState
+    toggleFunction(:toggleAeLockStateButton)
+  end
+
+  def toggleFunction(key)
+    camera = AppCamera.instance
+    error = Pointer.new(:object)
+    toggler = PanelView::TOGGLERS[key]
+    index = case camera.cameraPropertyValue(toggler[:propertyName], error:nil)
+    when toggler[:values][1]
+      0
+    when toggler[:values][0]
+      1
+    else
+      App.alert "CannotChange #{key} 2"
+      return false
+    end
+    result = if key == :toggleAeLockStateButton
+      (index == 0) ? camera.unlockAutoExposure(error) : camera.lockAutoExposure(error)
+    else
+      if key == :toggleFocusModeButton
+        (index == 1) ? camera.startMagnifyingLiveView(0, error:error) : camera.stopMagnifyingLiveView(error)
+      end
+      camera.setCameraPropertyValue(toggler[:propertyName], value:toggler[:values][index], error:error)
+    end
+    result ? @panelView.updateToggler(key, index) : App.alert("CannotChange #{key} 1")
   end
 
 end

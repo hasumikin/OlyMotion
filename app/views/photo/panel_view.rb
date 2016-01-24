@@ -6,72 +6,73 @@ class PanelView < UIView
       uiType: :button,
       title: '☓',
       action: :closePhotoView,
-      outlet: :@closePhotoViewButton
+      outlet: :closePhotoViewButton
     },
     { # B 0 / 1
       uiType: :label,
       text: 'alert',
-      outlet: :@alertLabel
+      outlet: :alertLabel
     },
     { # C 1 / 0
       uiType: :button,
-      title: 'WB',
+      title: "WB\nAuto",
       action: :toggleWhiteBalance,
-      outlet: :@toggleWhiteBalanceButton
+      outlet: :toggleWhiteBalanceButton
     },
     { # D 1 / 1
       uiType: :button,
       title: 'P',
-      action: :toggleAEMode,
-      outlet: :@toggleAEModeButton
+      action: :toggleTakeMode,
+      outlet: :toggleTakeModeButton
     },
     { # E 2 / 0
       uiType: :label,
       text: "SHTR\nN/A",
-      outlet: :@shutterSpeedLabel
+      outlet: :shutterSpeedLabel
     },
     { # F 2 / 1
       uiType: :label,
       text: "ISO\nN/A",
-      outlet: :@isoSensitivityLabel
+      outlet: :isoSensitivityLabel
     },
     { # G 3 / 0
       uiType: :button,
-      title: 'AF',
+      title: 'S-AF',
       action: :toggleFocusMode,
-      outlet: :@toggleFocusModeButton
+      outlet: :toggleFocusModeButton
     },
     { # H 3 / 1
       uiType: :button,
-      title: 'AEL',
-      action: :toggleAELock,
-      outlet: :@toggleAELockButton
+      title: "AE\nUnlock",
+      action: :toggleAeLockState,
+      outlet: :toggleAeLockStateButton
     },
     { # I
       uiType: :label,
       text: '25mm',
-      outlet: :@focusLengthLabel
+      outlet: :focusLengthLabel
     },
     { # J
       uiType: :label,
       text: '300mm',
-      outlet: :@focusLengthLabel2
+      outlet: :focusLengthLabel2
     },
     { # K
       uiType: :label,
       text: "APTR\nN/A",
-      outlet: :@apertureValueLabel
+      outlet: :apertureValueLabel
     },
     { # L
       uiType: :label,
       text: "XPSR\nN/A",
-      outlet: :@exposureCompensationLabel
+      outlet: :exposureCompensationLabel
     }
   ]
 
   def initWithFrame(frame)
     super(frame)
     @camera = AppCamera.instance
+    @outlets = {}
     self.backgroundColor = UIColor.darkGrayColor
     @containers = []
     @components = []
@@ -80,11 +81,13 @@ class PanelView < UIView
       @components[i] = []
     end
     COMPONENTS.each_with_index do |component, index|
-      outlet = case component[:uiType]
+      @outlets[component[:outlet]] = case component[:uiType]
       when :button
         UIButton.rounded_rect.tap do |b|
+          b.titleLabel.numberOfLines = 0
           b.setTitle(component[:title], forState:UIControlStateNormal)
-          b.contentHorizontalAlignment = UIControlContentHorizontalAlignmentCenter
+          b.titleLabel.textAlignment = NSTextAlignmentCenter
+          # b.contentHorizontalAlignment = UIControlContentHorizontalAlignmentCenter
           b.on(:touch) { |event| send(component[:action]) }
         end
       when :label
@@ -96,8 +99,7 @@ class PanelView < UIView
           l.textColor = UIColor.whiteColor
         end
       end
-      instance_variable_set(component[:outlet], outlet)
-      @components[index / 2] << outlet
+      @components[index / 2] << @outlets[component[:outlet]]
     end
 
     panelWidth = Device.screen.width - Device.screen.height * 1.5
@@ -145,22 +147,65 @@ class PanelView < UIView
 
   def updateApertureValueLabel
     actualApertureValue = @camera.actualApertureValue.match(/<APERTURE\/([^>]+)>/).try(:[], 1)
-    @apertureValueLabel.text = actualApertureValue ? "APTR\n#{actualApertureValue}" : "APTR\nN/A"
+    @outlets[:apertureValueLabel].text = actualApertureValue ? "APTR\n#{actualApertureValue}" : "APTR\nN/A"
   end
 
   def updateShutterSpeedLabel
     actualShutterSpeed = @camera.actualShutterSpeed.match(/<SHUTTER\/([^>]+)>/).try(:[], 1)
-    @shutterSpeedLabel.text = actualShutterSpeed ? "SHTR\n#{actualShutterSpeed}" : "SHTR\nN/A"
+    @outlets[:shutterSpeedLabel].text = actualShutterSpeed ? "SHTR\n#{actualShutterSpeed}" : "SHTR\nN/A"
   end
 
   def updateExposureCompensationLabel
     actualExposureCompensation = @camera.actualExposureCompensation.match(/<EXPREV\/([^>]+)>/).try(:[], 1)
-    @exposureCompensationLabel.text = actualExposureCompensation ? "XPSR\n#{actualExposureCompensation}" : "XPSR\nN/A"
+    @outlets[:exposureCompensationLabel].text = actualExposureCompensation ? "XPSR\n#{actualExposureCompensation}" : "XPSR\nN/A"
   end
 
   def updateIsoSensitivityLabel
     actualIsoSensitivity = @camera.actualIsoSensitivity.match(/<ISO\/([^>]+)>/).try(:[], 1)
-    @isoSensitivityLabel.text = actualIsoSensitivity ? "ISO\n#{actualIsoSensitivity}" : "ISO\nN/A"
+    @outlets[:isoSensitivityLabel].text = actualIsoSensitivity ? "ISO\n#{actualIsoSensitivity}" : "ISO\nN/A"
+  end
+
+  TOGGLERS = {
+    toggleAeLockStateButton: {
+      propertyName: 'AE_LOCK_STATE',
+      values: ['<AE_LOCK_STATE/UNLOCK>', '<AE_LOCK_STATE/LOCK>'],
+      titles: ["AE\nUnlock", "AE\nLock"]
+    },
+    toggleTakeModeButton: {
+      propertyName: 'TAKEMODE',
+      values: ['<TAKEMODE/P>', '<TAKEMODE/A>'],
+      titles: ["P", "A"]
+    },
+    toggleWhiteBalanceButton: {
+      propertyName: 'WB',
+      values: ['<WB/WB_AUTO>', '<WB/MWB_FINE>'],
+      titles: ["WB\nAuto", "WB\nDay"]
+    },
+    toggleFocusModeButton: {
+      propertyName: 'FOCUS_STILL',
+      values: ['<FOCUS_STILL/FOCUS_SAF>', '<FOCUS_STILL/FOCUS_MF>'],
+      titles: ["S-AF", "MF"]
+    }
+  }
+
+  def updateToggler(key, index)
+    @outlets[key].setTitle(TOGGLERS[key][:titles][index], forState:UIControlStateNormal)
+  end
+
+  def toggleFocusMode
+    NSNotificationCenter.defaultCenter.postNotificationName('ToggleFocusModeButtonWasTapped', object:self)
+  end
+
+  def toggleWhiteBalance
+    NSNotificationCenter.defaultCenter.postNotificationName('ToggleWhiteBalanceButtonWasTapped', object:self)
+  end
+
+  def toggleTakeMode
+    NSNotificationCenter.defaultCenter.postNotificationName('ToggleTakeModeButtonWasTapped', object:self)
+  end
+
+  def toggleAeLockState
+    NSNotificationCenter.defaultCenter.postNotificationName('ToggleAeLockStateButtonWasTapped', object:self)
   end
 
 end
