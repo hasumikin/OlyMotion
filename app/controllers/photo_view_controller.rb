@@ -408,7 +408,6 @@ class PhotoViewController < UIViewController
 
   # キー値監視機構によって呼び出されます。
   def observeValueForKeyPath(keyPath, ofObject:object, change:change, context:context)
-    # dp "keyPath=#{keyPath}"
     return unless @startingActivity
     selector = "didChange#{keyPath.camelize}"
     return unless self.respond_to?(selector)
@@ -422,22 +421,18 @@ class PhotoViewController < UIViewController
     end
   end
 
-  # カメラおよびレンズで使用しているF値の値が変わった時に呼び出されます。
   def didChangeActualApertureValue
     @panelView.updateApertureValueLabel
   end
 
-  # カメラで使用しているシャッター速度の値が変わった時に呼び出されます。
   def didChangeActualShutterSpeed
     @panelView.updateShutterSpeedLabel
   end
 
-  # カメラで使用している露出補正値の値が変わった時に呼び出されます。
   def didChangeActualExposureCompensation
     @panelView.updateExposureCompensationLabel
   end
 
-  # カメラで使用しているISO感度の値が変わった時に呼び出されます。
   def didChangeActualIsoSensitivity
     @panelView.updateIsoSensitivityLabel
   end

@@ -27,12 +27,12 @@ class PanelView < UIView
     },
     { # E 2 / 0
       uiType: :label,
-      text: '10000',
+      text: "SHTR\nN/A",
       outlet: :@shutterSpeedLabel
     },
     { # F 2 / 1
       uiType: :label,
-      text: "ISO\n16000",
+      text: "ISO\nN/A",
       outlet: :@isoSensitivityLabel
     },
     { # G 3 / 0
@@ -59,12 +59,12 @@ class PanelView < UIView
     },
     { # K
       uiType: :label,
-      text: '5.6',
+      text: "APTR\nN/A",
       outlet: :@apertureValueLabel
     },
     { # L
       uiType: :label,
-      text: '±0',
+      text: "XPSR\nN/A",
       outlet: :@exposureCompensationLabel
     }
   ]
@@ -144,23 +144,22 @@ class PanelView < UIView
   end
 
   def updateApertureValueLabel
-    actualApertureValue = @camera.actualApertureValue
-    @apertureValueLabel.text = actualApertureValue ? actualApertureValue : 'N/A'
-    # @apertureValueLabel.text = actualApertureValue ? @camera.cameraPropertyValueLocalizedTitle(actualApertureValue) : 'N/A'
+    actualApertureValue = @camera.actualApertureValue.match(/<APERTURE\/([^>]+)>/).try(:[], 1)
+    @apertureValueLabel.text = actualApertureValue ? "APTR\n#{actualApertureValue}" : "APTR\nN/A"
   end
 
   def updateShutterSpeedLabel
-    actualShutterSpeed = @camera.actualShutterSpeed
-    @shutterSpeedLabel.text = actualShutterSpeed ? actualShutterSpeed : 'N/A'
+    actualShutterSpeed = @camera.actualShutterSpeed.match(/<SHUTTER\/([^>]+)>/).try(:[], 1)
+    @shutterSpeedLabel.text = actualShutterSpeed ? "SHTR\n#{actualShutterSpeed}" : "SHTR\nN/A"
   end
 
   def updateExposureCompensationLabel
-    actualExposureCompensation = @camera.actualExposureCompensation
-    @exposureCompensationLabel.text = actualExposureCompensation ? actualExposureCompensation : 'N/A'
+    actualExposureCompensation = @camera.actualExposureCompensation.match(/<EXPREV\/([^>]+)>/).try(:[], 1)
+    @exposureCompensationLabel.text = actualExposureCompensation ? "XPSR\n#{actualExposureCompensation}" : "XPSR\nN/A"
   end
 
   def updateIsoSensitivityLabel
-    actualIsoSensitivity = @camera.actualIsoSensitivity
+    actualIsoSensitivity = @camera.actualIsoSensitivity.match(/<ISO\/([^>]+)>/).try(:[], 1)
     @isoSensitivityLabel.text = actualIsoSensitivity ? "ISO\n#{actualIsoSensitivity}" : "ISO\nN/A"
   end
 
