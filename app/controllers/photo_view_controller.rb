@@ -12,24 +12,6 @@ class PhotoViewController < UIViewController
     @startingActivity = false
     @previousRunMode = OLYCameraRunModeUnknown
 
-    # 監視するカメラプロパティ名とそれに紐づいた対応処理(メソッド名)を対とする辞書を用意して、
-    # Objective-CのKVOチックに、カメラプロパティに変化があったらその個別処理を呼び出せるようにしてみます。
-    # @cameraPropertyObserver = {}
-    # cameraPropertyObserver.setObject(NSStringFromSelector(@selector(didChangeAfLockState)), forKey:CameraPropertyAfLockState)
-    # cameraPropertyObserver.setObject(NSStringFromSelector(@selector(didChangeAeLockState)), forKey:CameraPropertyAeLockState)
-    # cameraPropertyObserver.setObject(NSStringFromSelector(@selector(didChangeAspectRatio)), forKey:CameraPropertyAspectRatio)
-    @cameraPropertyObserver = {
-      :CameraPropertyAfLockState => :didChangeAfLockState,
-      :CameraPropertyAeLockState => :didChangeAeLockState,
-      :CameraPropertyAspectRatio => :didChangeAspectRatio
-    }
-    # カメラプロパティ、カメラのプロパティを監視開始します。
-    camera = AppCamera.instance
-    camera.addCameraPropertyDelegate(self)
-    # camera.addObserver(self, forKeyPath:'CameraPropertyDetectedHumanFaces', options:0, context:'didChangeDetectedHumanFaces:')
-    # camera.addObserver(self, forKeyPath:'CameraPropertyRecordingElapsedTime', options:0, context:'didChangeRecordingElapsedTime:')
-    # camera.addObserver(self, forKeyPath:'CameraPropertyMagnifyingLiveView', options:0, context:'didChangeMagnifyingLiveView:')
-    # camera.addObserver(self, forKeyPath:'CameraPropertyMagnifyingLiveViewScale', options:0, context:'didChangeMagnifyingLiveViewScale:')
     setting = AppSetting.instance
     setting.addObserver(self, forKeyPath:"showLiveImageGrid", options:0, context:'didChangeShowLiveImageGrid:')
 
@@ -49,7 +31,37 @@ class PhotoViewController < UIViewController
     end
 
     NSNotificationCenter.defaultCenter.addObserver(self, selector:'close', name:'PhotoViewCloseButtonWasTapped', object:nil)
+
+    # 監視するカメラプロパティ名とそれに紐づいた対応処理(メソッド名)を対とする辞書を用意して、
+    # Objective-CのKVOチックに、カメラプロパティに変化があったらその個別処理を呼び出せるようにしてみます。
+    # @cameraPropertyObserver = {}
+    # cameraPropertyObserver.setObject(NSStringFromSelector(@selector(didChangeAfLockState)), forKey:CameraPropertyAfLockState)
+    # cameraPropertyObserver.setObject(NSStringFromSelector(@selector(didChangeAeLockState)), forKey:CameraPropertyAeLockState)
+    # cameraPropertyObserver.setObject(NSStringFromSelector(@selector(didChangeAspectRatio)), forKey:CameraPropertyAspectRatio)
+    @cameraPropertyObserver = {
+      :CameraPropertyAfLockState => :didChangeAfLockState,
+      :CameraPropertyAeLockState => :didChangeAeLockState,
+      :CameraPropertyAspectRatio => :didChangeAspectRatio
+    }
+    # カメラプロパティ、カメラのプロパティを監視開始します。
+    camera = AppCamera.instance
+    camera.addCameraPropertyDelegate(self)
+    camera.addObserver(self, forKeyPath:'actualApertureValue', options:0, context:nil)
+    camera.addObserver(self, forKeyPath:'actualShutterSpeed', options:0, context:nil)
+    camera.addObserver(self, forKeyPath:'actualExposureCompensation', options:0, context:nil)
+    camera.addObserver(self, forKeyPath:'actualIsoSensitivity', options:0, context:nil)
+
   end
+
+  # def dealloc
+  #   camera = AppCamera.instance
+  #   camera.removeObserver(self, forKeyPath:'actualApertureValue')
+  #   camera.removeObserver(self, forKeyPath:'actualShutterSpeed')
+  #   camera.removeObserver(self, forKeyPath:'actualExposureCompensation')
+  #   camera.removeObserver(self, forKeyPath:'actualIsoSensitivity')
+  #   camera.removeCameraPropertyDelegate(self)
+  #   # @cameraPropertyObserver = nil
+  # end
 
   def close
     dp 'PhotoViewクローズ'
@@ -358,8 +370,7 @@ class PhotoViewController < UIViewController
 
       dp "カメラを以前のモードに移行します。"
       unless camera.changeRunMode(weakSelf.previousRunMode, error:error)
-        # エラーを無視して続行します。
-        dp "An error occurred, but ignores it."
+        dp " エラーを無視して続行します。"
       end
 
       dp "デバイスのスリープを許可します。"
@@ -391,6 +402,44 @@ class PhotoViewController < UIViewController
     end
     # dp "ライブビューの回転方向をライブビュー拡大表示の全体図に反映します。"
     # self.liveImageOverallView.orientation = @liveImageView.image.imageOrientation
+  end
+
+
+
+  # キー値監視機構によって呼び出されます。
+  def observeValueForKeyPath(keyPath, ofObject:object, change:change, context:context)
+    # dp "keyPath=#{keyPath}"
+    return unless @startingActivity
+    selector = "didChange#{keyPath.camelize}"
+    return unless self.respond_to?(selector)
+    if NSThread.isMainThread
+      self.send(selector)
+    else
+      weakSelf = WeakRef.new(self)
+      Dispatch::Queue.main.async {
+        weakSelf.send(selector)
+      }
+    end
+  end
+
+  # カメラおよびレンズで使用しているF値の値が変わった時に呼び出されます。
+  def didChangeActualApertureValue
+    @panelView.updateApertureValueLabel
+  end
+
+  # カメラで使用しているシャッター速度の値が変わった時に呼び出されます。
+  def didChangeActualShutterSpeed
+    @panelView.updateShutterSpeedLabel
+  end
+
+  # カメラで使用している露出補正値の値が変わった時に呼び出されます。
+  def didChangeActualExposureCompensation
+    @panelView.updateExposureCompensationLabel
+  end
+
+  # カメラで使用しているISO感度の値が変わった時に呼び出されます。
+  def didChangeActualIsoSensitivity
+    @panelView.updateIsoSensitivityLabel
   end
 
 end

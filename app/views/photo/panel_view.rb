@@ -6,72 +6,73 @@ class PanelView < UIView
       uiType: :button,
       title: '☓',
       action: :closePhotoView,
-      outlet: :closePhotoViewButton
+      outlet: :@closePhotoViewButton
     },
     { # B 0 / 1
       uiType: :label,
       text: 'alert',
-      outlet: :alertLabel
+      outlet: :@alertLabel
     },
     { # C 1 / 0
       uiType: :button,
       title: 'WB',
       action: :toggleWhiteBalance,
-      outlet: :toggleWhiteBalanceButton
+      outlet: :@toggleWhiteBalanceButton
     },
     { # D 1 / 1
       uiType: :button,
       title: 'P',
       action: :toggleAEMode,
-      outlet: :toggleAEModeButton
+      outlet: :@toggleAEModeButton
     },
     { # E 2 / 0
       uiType: :label,
       text: '10000',
-      outlet: :shutterSpeedLabel
+      outlet: :@shutterSpeedLabel
     },
     { # F 2 / 1
       uiType: :label,
-      text: 'ISO',
-      outlet: :isoLabel
+      text: "ISO\n16000",
+      outlet: :@isoSensitivityLabel
     },
     { # G 3 / 0
       uiType: :button,
       title: 'AF',
       action: :toggleFocusMode,
-      outlet: :toggleFocusModeButton
+      outlet: :@toggleFocusModeButton
     },
     { # H 3 / 1
       uiType: :button,
       title: 'AEL',
       action: :toggleAELock,
-      outlet: :toggleAELockButton
+      outlet: :@toggleAELockButton
     },
     { # I
       uiType: :label,
-      text: '25',
-      outlet: :focusLengthLabel
+      text: '25mm',
+      outlet: :@focusLengthLabel
     },
     { # J
       uiType: :label,
-      text: '300',
-      outlet: :focusLengthLabel2
+      text: '300mm',
+      outlet: :@focusLengthLabel2
     },
     { # K
       uiType: :label,
       text: '5.6',
-      outlet: :apertureLabel
+      outlet: :@apertureValueLabel
     },
     { # L
       uiType: :label,
       text: '±0',
-      outlet: :exposureCorrectLabel
+      outlet: :@exposureCompensationLabel
     }
   ]
 
   def initWithFrame(frame)
     super(frame)
-    self.backgroundColor = UIColor.grayColor
+    @camera = AppCamera.instance
+    self.backgroundColor = UIColor.darkGrayColor
     @containers = []
     @components = []
     6.times do |i|
@@ -79,25 +80,28 @@ class PanelView < UIView
       @components[i] = []
     end
     COMPONENTS.each_with_index do |component, index|
-      case component[:uiType]
+      outlet = case component[:uiType]
       when :button
-        @components[index / 2] << UIButton.rounded_rect.tap do |b|
+        UIButton.rounded_rect.tap do |b|
           b.setTitle(component[:title], forState:UIControlStateNormal)
           b.contentHorizontalAlignment = UIControlContentHorizontalAlignmentCenter
           b.on(:touch) { |event| send(component[:action]) }
         end
       when :label
-        @components[index / 2] << UILabel.new.tap do |l|
-          l.font = UIFont.systemFontOfSize(12)
+        UILabel.new.tap do |l|
+          l.numberOfLines = 0
+          l.font = UIFont.systemFontOfSize(14)
           l.text = component[:text]
-          # l.alignment = UITextAlignmentCenter
+          l.textAlignment = NSTextAlignmentCenter
           l.textColor = UIColor.whiteColor
         end
       end
+      instance_variable_set(component[:outlet], outlet)
+      @components[index / 2] << outlet
     end
 
     panelWidth = Device.screen.width - Device.screen.height * 1.5
-    componentWidth = (panelWidth - 5 - 5 - 5) / 2
+    componentWidth = (panelWidth - 2 - 2 - 2) / 2
     6.times do |index|
       @containers[index] << @components[index][0]
       @containers[index] << @components[index][1]
@@ -106,7 +110,7 @@ class PanelView < UIView
         layout.subviews component0: @components[index][0], component1: @components[index][1]
         layout.vertical "|[component0]|"
         layout.vertical "|[component1]|"
-        layout.horizontal "|-5-[component0(#{componentWidth})]-5-[component1(#{componentWidth})]-5-|"
+        layout.horizontal "|-2-[component0(#{componentWidth})]-2-[component1(#{componentWidth})]-2-|"
       end
       self << @containers[index]
     end
@@ -136,8 +140,28 @@ class PanelView < UIView
   end
 
   def closePhotoView
-    dp '閉じるボタン'
     NSNotificationCenter.defaultCenter.postNotificationName('PhotoViewCloseButtonWasTapped', object:self)
+  end
+
+  def updateApertureValueLabel
+    actualApertureValue = @camera.actualApertureValue
+    @apertureValueLabel.text = actualApertureValue ? actualApertureValue : 'N/A'
+    # @apertureValueLabel.text = actualApertureValue ? @camera.cameraPropertyValueLocalizedTitle(actualApertureValue) : 'N/A'
+  end
+
+  def updateShutterSpeedLabel
+    actualShutterSpeed = @camera.actualShutterSpeed
+    @shutterSpeedLabel.text = actualShutterSpeed ? actualShutterSpeed : 'N/A'
+  end
+
+  def updateExposureCompensationLabel
+    actualExposureCompensation = @camera.actualExposureCompensation
+    @exposureCompensationLabel.text = actualExposureCompensation ? actualExposureCompensation : 'N/A'
+  end
+
+  def updateIsoSensitivityLabel
+    actualIsoSensitivity = @camera.actualIsoSensitivity
+    @isoSensitivityLabel.text = actualIsoSensitivity ? "ISO\n#{actualIsoSensitivity}" : "ISO\nN/A"
   end
 
 end
