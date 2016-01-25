@@ -165,31 +165,8 @@ class PanelView < UIView
     @outlets[:isoSensitivityLabel].text = actualIsoSensitivity ? "ISO\n#{actualIsoSensitivity}" : "ISO\nN/A"
   end
 
-  TOGGLERS = {
-    toggleAeLockStateButton: {
-      propertyName: 'AE_LOCK_STATE',
-      values: ['<AE_LOCK_STATE/UNLOCK>', '<AE_LOCK_STATE/LOCK>'],
-      titles: ["AE\nUnlock", "AE\nLock"]
-    },
-    toggleTakeModeButton: {
-      propertyName: 'TAKEMODE',
-      values: ['<TAKEMODE/P>', '<TAKEMODE/A>'],
-      titles: ["P", "A"]
-    },
-    toggleWhiteBalanceButton: {
-      propertyName: 'WB',
-      values: ['<WB/WB_AUTO>', '<WB/MWB_FINE>'],
-      titles: ["WB\nAuto", "WB\nDay"]
-    },
-    toggleFocusModeButton: {
-      propertyName: 'FOCUS_STILL',
-      values: ['<FOCUS_STILL/FOCUS_SAF>', '<FOCUS_STILL/FOCUS_MF>'],
-      titles: ["S-AF", "MF"]
-    }
-  }
-
   def updateToggler(key, index)
-    @outlets[key].setTitle(TOGGLERS[key][:titles][index], forState:UIControlStateNormal)
+    @outlets[key].setTitle(PhotoViewController::TOGGLERS[key][:titles][index], forState:UIControlStateNormal)
   end
 
   def toggleFocusMode

@@ -590,12 +590,6 @@ class SettingsViewController < UIViewController
     reportAnimation(progress, imageFiles)
   end
 
-  def alertOnMainThreadWithMessage(message, title:title)
-    Dispatch::Queue.main.async {
-      App.alert(title, message: message)
-    }
-  end
-
   # カメラ操作の子画面を表示している場合は、この画面に戻します。
   def backToConnectionView(animated)
     # この画面が一番上に表示されている場合は画面遷移は必要ありません。

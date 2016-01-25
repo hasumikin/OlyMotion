@@ -12,4 +12,10 @@ module DebugConcern
     end
   end
 
+  def alertOnMainThreadWithMessage(message, title:title)
+    Dispatch::Queue.main.async {
+      App.alert(title, message: message)
+    }
+  end
+
 end

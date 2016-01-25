@@ -3,6 +3,29 @@ class PhotoViewController < UIViewController
   include UIViewControllerThreading
   include DebugConcern
 
+  TOGGLERS = {
+    toggleAeLockStateButton: {
+      propertyName: 'AE_LOCK_STATE',
+      values: ['<AE_LOCK_STATE/UNLOCK>', '<AE_LOCK_STATE/LOCK>'],
+      titles: ["AE\nUnlock", "AE\nLock"]
+    },
+    toggleTakeModeButton: {
+      propertyName: 'TAKEMODE',
+      values: ['<TAKEMODE/P>', '<TAKEMODE/A>'],
+      titles: ["P", "A"]
+    },
+    toggleWhiteBalanceButton: {
+      propertyName: 'WB',
+      values: ['<WB/WB_AUTO>', '<WB/MWB_FINE>'],
+      titles: ["WB\nAuto", "WB\nDay"]
+    },
+    toggleFocusModeButton: {
+      propertyName: 'FOCUS_STILL',
+      values: ['<FOCUS_STILL/FOCUS_SAF>', '<FOCUS_STILL/FOCUS_MF>'],
+      titles: ["S-AF", "MF"]
+    }
+  }
+
   attr_accessor :previousRunMode, :liveImageView, :restorationIdentifier
 
   def viewDidLoad
@@ -49,12 +72,12 @@ class PhotoViewController < UIViewController
     }
     # カメラプロパティ、カメラのプロパティを監視開始します。
     camera = AppCamera.instance
+    camera.init_properties
     camera.addCameraPropertyDelegate(self)
     camera.addObserver(self, forKeyPath:'actualApertureValue', options:0, context:nil)
     camera.addObserver(self, forKeyPath:'actualShutterSpeed', options:0, context:nil)
     camera.addObserver(self, forKeyPath:'actualExposureCompensation', options:0, context:nil)
     camera.addObserver(self, forKeyPath:'actualIsoSensitivity', options:0, context:nil)
-
   end
 
   # def dealloc
@@ -464,7 +487,7 @@ class PhotoViewController < UIViewController
   def toggleFunction(key)
     camera = AppCamera.instance
     error = Pointer.new(:object)
-    toggler = PanelView::TOGGLERS[key]
+    toggler = TOGGLERS[key]
     index = case camera.cameraPropertyValue(toggler[:propertyName], error:nil)
     when toggler[:values][1]
       0

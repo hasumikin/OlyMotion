@@ -4,6 +4,38 @@ class AppCamera < OLYCamera
 
   attr_accessor :connectionDelegates, :cameraPropertyDelegates, :playbackDelegates, :liveViewDelegates, :recordingDelegates, :recordingSupportsDelegates, :takingPictureDelegates
 
+  # OLYCameraLiveViewSizeQVGA    (320×240)
+  # OLYCameraLiveViewSizeVGA     (640×480)
+  # OLYCameraLiveViewSizeSVGA    (800×600)
+  # OLYCameraLiveViewSizeXGA     (1024×768)
+  # OLYCameraLiveViewSizeQuadVGA (1280×960)
+  LIVE_VIEW_SIZES = {
+    normal:  OLYCameraLiveViewSizeVGA, # ふだんはスピード重視の画質
+    magnify: OLYCameraLiveViewSizeXGA  # 拡大ビューのときに画質をよくする
+  }
+
+  # https://opc.olympus-imaging.com/sdkdocs/data/PropertyList/property_list.html
+  DEFAULT_PROPERTIES = {
+    'TAKEMODE'                        => '<TAKEMODE/P>',
+    'WB'                              => '<WB/WB_AUTO>',
+    'AUTO_WB_DENKYU_COLORED_LEAVING'  => '<AUTO_WB_DENKYU_COLORED_LEAVING/ON>',
+    'FOCUS_STILL'                     => '<FOCUS_STILL/FOCUS_SAF>',
+    'AE'                              => '<AE/AE_CENTER>',
+    'ISO'                             => '<ISO/Auto>',
+    'EXPREV'                          => '<EXPREV/0.0>',
+    'TAKE_DRIVE'                      => '<TAKE_DRIVE/DRIVE_NORMAL>',
+    'ASPECT_RATIO'                    => '<ASPECT_RATIO/03_02>',
+    'IMAGESIZE'                       => '<IMAGESIZE/4608x3456>',
+    'RAW'                             => '<RAW/OFF>',
+    'COMPRESSIBILITY_RATIO'           => '<COMPRESSIBILITY_RATIO/CMP_2_7>',
+    'DESTINATION_FILE'                => '<DESTINATION_FILE/DESTINATION_FILE_MEDIA>',
+    'FULL_TIME_AF'                    => '<FULL_TIME_AF/OFF>',
+    'FACE_SCAN'                       => '<FACE_SCAN/FACE_SCAN_OFF>',
+    'RECVIEW'                         => '<RECVIEW/ON>',
+    'SOUND_VOLUME_LEVEL'              => '<SOUND_VOLUME_LEVEL/1>',
+    # 'GPS'                             => '<GPS/ON>' なぜか拒否される
+  }
+
   # Rubymotionではシングルトンモジュールが使えない
   def self.instance
     Dispatch.once { @@instance ||= alloc.init }
@@ -28,6 +60,16 @@ class AppCamera < OLYCamera
       self.recordingSupportsDelegate = self
     end
     self
+  end
+
+  def init_properties
+    error = Pointer.new(:object)
+    unless self.setCameraPropertyValues(DEFAULT_PROPERTIES, error:error)
+      alertOnMainThreadWithMessage(error[0].localizedDescription, title:"FailedSetProperties")
+    end
+    unless self.changeLiveViewSize(LIVE_VIEW_SIZES[:normal], error:error)
+      alertOnMainThreadWithMessage(error[0].localizedDescription, title:"FailedSetLiveViewSize")
+    end
   end
 
   # delegate
@@ -290,6 +332,7 @@ class AppCamera < OLYCamera
     @magnifyingOverallViewSize = overallViewSize
     @magnifyingDisplayAreaRect = displayAreaRect
     @magnifyingLiveViewScale = scale
+    self.changeLiveViewSize(LIVE_VIEW_SIZES[:magnify], error:error) # ライブビューの画質を上げる
     return true
   end
 
@@ -305,6 +348,7 @@ class AppCamera < OLYCamera
     @magnifyingOverallViewSize = overallViewSize
     @magnifyingDisplayAreaRect = displayAreaRect
     @magnifyingLiveViewScale = scale
+    self.changeLiveViewSize(LIVE_VIEW_SIZES[:magnify], error:error) # ライブビューの画質を上げる
     return true
   end
 
@@ -348,6 +392,7 @@ class AppCamera < OLYCamera
     # ライブビュー拡大の表示範囲を初期化しておきます。
     @magnifyingOverallViewSize = CGSizeZero
     @magnifyingDisplayAreaRect = CGRectZero
+    self.changeLiveViewSize(LIVE_VIEW_SIZES[:normal], error:error) # ライブビューの画質を戻す
     return true
   end
 
