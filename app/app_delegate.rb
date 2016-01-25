@@ -6,13 +6,7 @@ class AppDelegate
   AppOACentralConfigurationDidGetNotification = "AppOACentralConfigurationDidGetNotification"
   AppOACentralConfigurationDidGetNotificationUserInfo = "AppOACentralConfigurationDidGetNotificationUserInfo"
 
-  attr_accessor :camera, :setting
-
   def application(application, didFinishLaunchingWithOptions:launchOptions)
-    @setting = AppSetting.instance
-    @calmeraLog = AppCameraLog.instance
-    @camera = AppCamera.instance
-
     rootViewController = SettingsViewController.alloc.init
     rootViewController.title = 'OlyMotion'
     rootViewController.view.backgroundColor = UIColor.whiteColor

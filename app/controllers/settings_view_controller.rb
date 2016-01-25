@@ -30,7 +30,6 @@ class SettingsViewController < UIViewController
     # アプリケーション設定の変更を監視準備します。
     notificationCenter.addObserver(self, selector:'didChangedAppSetting:', name:'AppSettingChangedNotification', object:nil)
 
-    appDelegate = UIApplication.sharedApplication.delegate
     @camera = AppCamera.instance
     @setting = AppSetting.instance
 
@@ -253,6 +252,10 @@ class SettingsViewController < UIViewController
       didSelectRowAtDisconnectCell
     when :@disconnectAndSleepCell
       didSelectRowAtDisconnectAndSleepCell
+    when :@showMagnifySettingCell
+      MagnifyingLiveViewScaleViewController.new.tap do |controller|
+        self.navigationController.pushViewController(controller, animated:true)
+      end
     end
   end
 

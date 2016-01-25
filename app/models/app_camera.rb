@@ -14,6 +14,13 @@ class AppCamera < OLYCamera
     magnify: OLYCameraLiveViewSizeXGA  # 拡大ビューのときに画質をよくする
   }
 
+  MAGNIFYING_LIVE_VIEW_SCALES = {
+    'OLYCameraMagnifyingLiveViewScaleX5'  => 'x5',
+    'OLYCameraMagnifyingLiveViewScaleX7'  => 'x7',
+    'OLYCameraMagnifyingLiveViewScaleX10' => 'x10',
+    'OLYCameraMagnifyingLiveViewScaleX14' => 'x14'
+  }
+
   # https://opc.olympus-imaging.com/sdkdocs/data/PropertyList/property_list.html
   DEFAULT_PROPERTIES = {
     'TAKEMODE'                        => '<TAKEMODE/P>',

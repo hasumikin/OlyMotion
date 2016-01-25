@@ -501,7 +501,13 @@ class PhotoViewController < UIViewController
       (index == 0) ? camera.unlockAutoExposure(error) : camera.lockAutoExposure(error)
     else
       if key == :toggleFocusModeButton
-        (index == 1) ? camera.startMagnifyingLiveView(0, error:error) : camera.stopMagnifyingLiveView(error)
+        setting = AppSetting.instance
+        scale = if setting['magnifingLiveViewScale']
+          AppCamera::MAGNIFYING_LIVE_VIEW_SCALES.to_a.index{|a| a[0] == setting['magnifingLiveViewScale']}
+        else
+          OLYCameraMagnifyingLiveViewScaleX5
+        end
+        (index == 1) ? camera.startMagnifyingLiveView(scale, error:error) : camera.stopMagnifyingLiveView(error)
       end
       camera.setCameraPropertyValue(toggler[:propertyName], value:toggler[:values][index], error:error)
     end

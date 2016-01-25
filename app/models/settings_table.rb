@@ -45,6 +45,15 @@ class SettingsTable
             outlet: :@disconnectAndSleepCell
           }
         ]
+      },
+      { title: 'Settings',
+        rows: [
+          { label: 'Magnifying Live View Scale',
+            detail: AppCamera::MAGNIFYING_LIVE_VIEW_SCALES[@setting['magnifingLiveViewScale']],
+            accessory_type: UITableViewCellAccessoryDisclosureIndicator,
+            outlet: :@showMagnifySettingCell
+          }
+        ]
       }
     ]
   end
