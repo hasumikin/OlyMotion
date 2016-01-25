@@ -140,6 +140,7 @@ class SettingsViewController < UIViewController
       @settingsTable.updateShowWifiSettingCell(@wifiConnector)
       @settingsTable.updateShowBluetoothSettingCell
       @settingsTable.updateCameraConnectionCells(@wifiConnector, @bluetoothConnector)
+      @settingsTable.updateShowMagnifySettingCell
       # @settingsTable.updateCameraOperationCells(@wifiConnector, @bluetoothConnector)
       refreshControl.try(:endRefreshing)
     }
@@ -226,6 +227,7 @@ class SettingsViewController < UIViewController
   def viewWillAppear(animated)
     super
     navigationController.setToolbarHidden(true, animated:animated)
+    updateSettingsTable(nil)
   end
 
   # テーブルの行がタップされた

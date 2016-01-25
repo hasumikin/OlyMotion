@@ -130,6 +130,10 @@ class SettingsTable
     @showBluetoothSettingCell.detailTextLabel.text = @setting['bluetoothLocalName'] if @showBluetoothSettingCell
   end
 
+  def updateShowMagnifySettingCell
+    @showMagnifySettingCell.detailTextLabel.text = AppCamera::MAGNIFYING_LIVE_VIEW_SCALES[@setting['magnifingLiveViewScale']] if @showMagnifySettingCell
+  end
+
   # アプリ接続の状態を画面に表示します。
   def updateCameraConnectionCells(wifiConnector, bluetoothConnector)
     if @camera.connected && @camera.connectionType == OLYCameraConnectionTypeBluetoothLE
